@@ -14,6 +14,8 @@ Build-Depends:
  rocm-comgr,
  rocm-hipcc,
  libnuma-dev,
+ libffi-dev,
+ libglvnd-dev,
 Standards-Version: 4.7.0
 Homepage: https://github.com/ROCm
 Vcs-Browser: https://github.com/r-rocm/rocm-hip-on-rocclr
