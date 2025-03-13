@@ -1,0 +1,56 @@
+# Anywhere {branch} is used, the branch name will be substituted.
+# These comments will also be removed.
+defaults:
+  numbered: False
+  maxdepth: 6
+root: index
+subtrees:
+
+- caption: Install
+  entries:
+  - file: install/install
+    title: Installing HIP
+  - file: install/build
+    title: Building HIP from source
+
+- caption: Conceptual
+  entries:
+  - file: understand/programming_model
+  - file: understand/programming_model_reference
+  - file: understand/hardware_implementation
+  - file: understand/amd_clr
+
+- caption: How to
+  entries:
+  - file: how-to/programming_manual
+  - file: how-to/hip_porting_guide
+  - file: how-to/hip_porting_driver_api
+  - file: how-to/hip_rtc
+  - file: how-to/performance_guidelines
+  - file: how-to/debugging
+  - file: how-to/logging
+  - file: how-to/faq
+
+- caption: Reference
+  entries:
+  - file: doxygen/html/index
+  - file: reference/kernel_language
+    title: C++ language extensions
+  - file: reference/terms
+    title: Comparing Syntax for different APIs
+  - file: reference/virtual_rocr
+  - file: reference/deprecated_api_list
+    title: List of deprecated APIs
+  - file: reference/fp8_numbers
+    title: FP8 numbers in HIP
+
+- caption: Tutorials
+  entries:
+  - url: https://github.com/ROCm/HIP-Examples
+    title: HIP examples
+  - url: https://github.com/ROCm/hip-tests/tree/develop/samples
+    title: HIP test samples
+
+- caption: About
+  entries:
+  - file: license.md
