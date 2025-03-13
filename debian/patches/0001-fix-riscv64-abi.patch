@@ -1,0 +1,87 @@
+From: Sakura286 <sakura286@outlook.com>
+Date: Fri, 14 Mar 2025 01:20:32 +0800
+Subject: fix riscv64 abi
+
+---
+ clr-rocm-6.2.4/hipamd/src/hip_graph_internal.cpp | 4 ++--
+ clr-rocm-6.2.4/rocclr/device/rocm/rocvirtual.cpp | 4 ++--
+ clr-rocm-6.2.4/rocclr/include/top.hpp            | 2 ++
+ clr-rocm-6.2.4/rocclr/os/os.hpp                  | 3 +++
+ clr-rocm-6.2.4/rocclr/os/os_posix.cpp            | 3 ++-
+ 5 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/clr-rocm-6.2.4/hipamd/src/hip_graph_internal.cpp b/clr-rocm-6.2.4/hipamd/src/hip_graph_internal.cpp
+index ebcf4c9..9614445 100644
+--- a/clr-rocm-6.2.4/hipamd/src/hip_graph_internal.cpp
++++ b/clr-rocm-6.2.4/hipamd/src/hip_graph_internal.cpp
+@@ -443,9 +443,9 @@ hipError_t GraphExec::CaptureAQLPackets() {
+                  kernarg_pool_size_graph_ != 0) {
+         address dev_ptr = kernarg_pool_graph_ + kernarg_pool_size_graph_;
+         auto kSentinel = *reinterpret_cast<volatile unsigned char*>(dev_ptr - 1);
+-        _mm_sfence();
++        asm volatile("fence w,w" ::: "memory");
+         *(dev_ptr - 1) = kSentinel;
+-        _mm_mfence();
++        asm volatile("fence rw,rw" ::: "memory");
+         kSentinel = *reinterpret_cast<volatile unsigned char*>(dev_ptr - 1);
+       }
+     }
+diff --git a/clr-rocm-6.2.4/rocclr/device/rocm/rocvirtual.cpp b/clr-rocm-6.2.4/rocclr/device/rocm/rocvirtual.cpp
+index 169e81e..fe04cd6 100644
+--- a/clr-rocm-6.2.4/rocclr/device/rocm/rocvirtual.cpp
++++ b/clr-rocm-6.2.4/rocclr/device/rocm/rocvirtual.cpp
+@@ -3247,9 +3247,9 @@ bool VirtualGPU::submitKernelInternal(const amd::NDRangeContainer& sizes,
+           auto kSentinel = *reinterpret_cast<volatile int*>(dev().info().hdpMemFlushCntl);
+         } else if (kernArgImpl == KernelArgImpl::DeviceKernelArgsReadback &&
+                    argSize != 0) {
+-          _mm_sfence();
++          asm volatile("fence w,w" ::: "memory");
+           *(argBuffer + argSize - 1) = *(parameters + argSize - 1);
+-          _mm_mfence();
++          asm volatile("fence rw,rw" ::: "memory");
+           auto kSentinel = *reinterpret_cast<volatile unsigned char*>(
+               argBuffer + argSize - 1);
+         }
+diff --git a/clr-rocm-6.2.4/rocclr/include/top.hpp b/clr-rocm-6.2.4/rocclr/include/top.hpp
+index d6aa00c..99b5ae9 100644
+--- a/clr-rocm-6.2.4/rocclr/include/top.hpp
++++ b/clr-rocm-6.2.4/rocclr/include/top.hpp
+@@ -25,6 +25,8 @@
+ #define ATI_ARCH_ARM
+ #elif defined(i386) || defined(__i386) || defined(__i386__) || defined(_M_IX86) || defined(__x86__) || defined(__x86_64) || defined(__x86_64__) || defined(__amd64) || defined(__amd64__) || defined(_M_X64) || defined(_M_AMD64)
+ #define ATI_ARCH_X86
++#elif defined(__riscv)
++#define ATI_ARCH_RISCV
+ #endif
+ 
+ #if defined(ATI_ARCH_ARM)
+diff --git a/clr-rocm-6.2.4/rocclr/os/os.hpp b/clr-rocm-6.2.4/rocclr/os/os.hpp
+index c9bd0b9..024f1a8 100644
+--- a/clr-rocm-6.2.4/rocclr/os/os.hpp
++++ b/clr-rocm-6.2.4/rocclr/os/os.hpp
+@@ -361,6 +361,9 @@ ALWAYSINLINE address Os::currentStackPtr() {
+ #elif defined(ATI_ARCH_ARM)
+       "mov %0,sp"
+       : "=r"(value)
++#elif defined(ATI_ARCH_RISCV)
++      "mv %0,sp"
++      : "=r"(value)
+ #else
+       ""
+ #endif
+diff --git a/clr-rocm-6.2.4/rocclr/os/os_posix.cpp b/clr-rocm-6.2.4/rocclr/os/os_posix.cpp
+index 739795e..80666cb 100644
+--- a/clr-rocm-6.2.4/rocclr/os/os_posix.cpp
++++ b/clr-rocm-6.2.4/rocclr/os/os_posix.cpp
+@@ -317,9 +317,10 @@ void Os::currentStackInfo(address* base, size_t* size) {
+   *base += *size;
+ 
+   ::pthread_attr_destroy(&threadAttr);
+-
++#if !(defined(__riscv) && __riscv_xlen == 64)
+   assert(Os::currentStackPtr() >= *base - *size && Os::currentStackPtr() < *base &&
+          "just checking");
++#endif
+ }
+ 
+ void Os::setCurrentThreadName(const char* name) { ::prctl(PR_SET_NAME, name); }
