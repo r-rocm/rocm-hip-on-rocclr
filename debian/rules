@@ -1,0 +1,48 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+PKG_NAME=rocm-hip-on-rocclr
+
+ROCM_VERSION=$(shell cat /opt/REVYOS_ROCM_VERSION)
+ROCM_PATH=/opt/rocm-$(ROCM_VERSION)
+
+TOP_DIR := $(shell pwd)
+BUILD_PATH := $(TOP_DIR)/build-rocm
+SRC_HIP := $(TOP_DIR)/hip-rocm-$(ROCM_VERSION)
+SRC_HIP_OTHER := $(TOP_DIR)/hipother-rocm-$(ROCM_VERSION)
+SRC_CLR := $(TOP_DIR)/clr-rocm-$(ROCM_VERSION)
+
+DEB_INST_DIR := $(TOP_DIR)/debian/$(PKG_NAME)
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	cmake -S $(SRC_CLR) -B $(BUILD_PATH) \
+		-DCMAKE_INSTALL_PREFIX=$(ROCM_PATH) \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_C_COMPILER=$(ROCM_PATH)/bin/clang \
+		-DCMAKE_CXX_COMPILER=$(ROCM_PATH)/bin/clang++ \
+		-DHIP_COMPILER=clang \
+		-DHIP_PLATFORM=amd \
+		-DHIP_COMMON_DIR=${SRC_HIP} \
+		-DCMAKE_HIP_ARCHITECTURES=OFF \
+		-DHSA_PATH=$(ROCM_PATH) \
+		-DCMAKE_SKIP_BUILD_RPATH=TRUE \
+		-DCPACK_INSTALL_PREFIX=$(ROCM_PATH) \
+		-DROCM_PATH=$(ROCM_PATH) \
+		-DHIPCC_BIN_DIR=$(ROCM_PATH)/bin \
+		-DCLR_BUILD_HIP=ON \
+		-DCLR_BUILD_OCL=OFF \
+		-DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv
+
+override_dh_auto_build:
+	cmake --build $(BUILD_PATH) -- $(MAKEOPTS)
+
+override_dh_auto_install:
+	DESTDIR=$(DEB_INST_DIR)/ cmake --build $(BUILD_PATH) -- $(MAKEOPTS) install
+
+override_dh_install:
+	exit 999
+	echo "dh_install skipped"

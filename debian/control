@@ -1,0 +1,29 @@
+Source: rocm-hip-on-rocclr
+Section: devel
+Priority: optional
+Maintainer: CHEN Xuan <chenxuan@iscas.ac.cn>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake,
+ rocm-env,
+# rocm-llvm, (wait to be done)
+# rocm-rocprofiler-register, (change name)
+ rocprofiler-register-rocm,
+ rocm-hsa,
+ rocm-comgr,
+ rocm-hipcc,
+Standards-Version: 4.7.0
+Homepage: https://github.com/ROCm
+Vcs-Browser: https://github.com/r-rocm/rocm-hip-on-rocclr
+Vcs-Git: https://github.com/r-rocm/rocm-hip-on-rocclr.git
+
+Package: rocm-hip-on-rocclr
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: rocclr with hip
+ AMD CLR (Compute Language Runtime) contains source codes for AMD's compute languages runtimes: HIP and OpenCL™.
+ HIP is a C++ Runtime API and Kernel Language that allows developers to create portable applications for AMD and NVIDIA GPUs from single source code.
+ HIPother provides files required to support non-AMD specific back-end implementation for HIP.
