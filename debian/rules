@@ -35,6 +35,7 @@ override_dh_auto_configure:
 		-DHIPCC_BIN_DIR=$(ROCM_PATH)/bin \
 		-DCLR_BUILD_HIP=ON \
 		-DCLR_BUILD_OCL=OFF \
+		-DUSE_PROF_API=OFF \
 		-DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv
 
 override_dh_auto_build:

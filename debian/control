@@ -16,6 +16,7 @@ Build-Depends:
  libnuma-dev,
  libffi-dev,
  libglvnd-dev,
+ python3-sphinx,
 Standards-Version: 4.7.0
 Homepage: https://github.com/ROCm
 Vcs-Browser: https://github.com/r-rocm/rocm-hip-on-rocclr
