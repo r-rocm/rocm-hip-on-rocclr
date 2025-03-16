@@ -7,6 +7,8 @@ PKG_NAME=rocm-hip-on-rocclr
 ROCM_VERSION=$(shell cat /opt/REVYOS_ROCM_VERSION)
 ROCM_PATH=/opt/rocm-$(ROCM_VERSION)
 
+MAKEOPTS="-j$$(($$(nproc) / 4))"
+
 TOP_DIR := $(shell pwd)
 BUILD_PATH := $(TOP_DIR)/build-rocm
 SRC_HIP := $(TOP_DIR)/hip-rocm-$(ROCM_VERSION)
@@ -36,7 +38,8 @@ override_dh_auto_configure:
 		-DCLR_BUILD_HIP=ON \
 		-DCLR_BUILD_OCL=OFF \
 		-DUSE_PROF_API=OFF \
-		-DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv
+		-DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv \
+		-DCMAKE_VERBOSE_MAKEFILE=TRUE
 
 override_dh_auto_build:
 	cmake --build $(BUILD_PATH) -- $(MAKEOPTS)
