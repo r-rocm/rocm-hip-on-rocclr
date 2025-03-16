@@ -15,7 +15,7 @@ SRC_HIP := $(TOP_DIR)/hip-rocm-$(ROCM_VERSION)
 SRC_HIP_OTHER := $(TOP_DIR)/hipother-rocm-$(ROCM_VERSION)
 SRC_CLR := $(TOP_DIR)/clr-rocm-$(ROCM_VERSION)
 
-DEB_INST_DIR := $(TOP_DIR)/debian/$(PKG_NAME)
+DEB_INST_DIR := $(TOP_DIR)/debian/tmp
 
 %:
 	dh $@
@@ -48,5 +48,5 @@ override_dh_auto_install:
 	DESTDIR=$(DEB_INST_DIR)/ cmake --build $(BUILD_PATH) -- $(MAKEOPTS) install
 
 override_dh_install:
-	exit 999
-	echo "dh_install skipped"
+	sed -i "s,@ROCM_VERSION@,${ROCM_VERSION},g" debian/*.install
+	dh_install

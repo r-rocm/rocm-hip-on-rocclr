@@ -27,7 +27,28 @@ Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
-Description: rocclr with hip
+Description: rocclr with hip binary files
  AMD CLR (Compute Language Runtime) contains source codes for AMD's compute languages runtimes: HIP and OpenCL™.
  HIP is a C++ Runtime API and Kernel Language that allows developers to create portable applications for AMD and NVIDIA GPUs from single source code.
  HIPother provides files required to support non-AMD specific back-end implementation for HIP.
+
+Package: rocm-hip-on-rocclr-dev
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: rocclr with hip development files
+ AMD CLR (Compute Language Runtime) contains source codes for AMD's compute languages runtimes: HIP and OpenCL™.
+ HIP is a C++ Runtime API and Kernel Language that allows developers to create portable applications for AMD and NVIDIA GPUs from single source code.
+ HIPother provides files required to support non-AMD specific back-end implementation for HIP.
+
+Package: rocm-hip-on-rocclr-doc
+Architecture: all
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: rocclr with hip doc files
+ AMD CLR (Compute Language Runtime) contains source codes for AMD's compute languages runtimes: HIP and OpenCL™.
+ HIP is a C++ Runtime API and Kernel Language that allows developers to create portable applications for AMD and NVIDIA GPUs from single source code.
+ HIPother provides files required to support non-AMD specific back-end implementation for HIP.
+
