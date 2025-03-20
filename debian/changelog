@@ -1,3 +1,9 @@
+rocm-hip-on-rocclr (6.2.4-3) unstable; urgency=medium
+
+  * Change deps.
+
+ -- CHEN Xuan <chenxuan@iscas.ac.cn>  Thu, 20 Mar 2025 10:36:25 +0800
+
 rocm-hip-on-rocclr (6.2.4-2) unstable; urgency=medium
 
   * Add deps. 
