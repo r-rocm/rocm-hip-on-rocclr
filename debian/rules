@@ -38,8 +38,8 @@ override_dh_auto_configure:
 		-DCLR_BUILD_HIP=ON \
 		-DCLR_BUILD_OCL=OFF \
 		-DUSE_PROF_API=OFF \
-		-DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv \
 		-DCMAKE_VERBOSE_MAKEFILE=TRUE
+# -DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv \
 
 override_dh_auto_build:
 	cmake --build $(BUILD_PATH) -- $(MAKEOPTS)
