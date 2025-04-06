@@ -1,3 +1,9 @@
+rocm-hip-on-rocclr (6.2.4-7) unstable; urgency=medium
+
+  * Release for hipcc change.
+
+ --  <chenxuan@iscas.ac.cn>  Sun, 06 Apr 2025 15:15:39 +0800
+
 rocm-hip-on-rocclr (6.2.4-6) unstable; urgency=medium
 
   * Release for hipcc change
