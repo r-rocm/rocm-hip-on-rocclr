@@ -1,0 +1,24 @@
+From: Sakura286 <sakura286@outlook.com>
+Date: Thu, 10 Apr 2025 18:37:22 +0800
+Subject: test install path
+
+---
+ clr-rocm-6.2.4/hipamd/CMakeLists.txt | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/clr-rocm-6.2.4/hipamd/CMakeLists.txt b/clr-rocm-6.2.4/hipamd/CMakeLists.txt
+index 9442069..455f8d3 100755
+--- a/clr-rocm-6.2.4/hipamd/CMakeLists.txt
++++ b/clr-rocm-6.2.4/hipamd/CMakeLists.txt
+@@ -328,6 +328,11 @@ install(FILES ${PROJECT_BINARY_DIR}/share/hip/.hipInfo DESTINATION ${CMAKE_INSTA
+ 
+ # Install version
+ install(FILES ${PROJECT_BINARY_DIR}/share/hip/version DESTINATION ${CMAKE_INSTALL_DATADIR}/hip)
++
++message("!!!!!!!!!!!!!!!!!!!")
++message("CMAKE_INSTALL_DATADIR $CMAKE_INSTALL_DATADIR")
++message("CMAKE_INSTALL_LIBDIR $CMAKE_INSTALL_LIBDIR")
++
+ # .hipVersion is added to satisfy Windows compute build.
+ #TODO to be removed
+ if(WIN32)
