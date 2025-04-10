@@ -1,3 +1,9 @@
+rocm-hip-on-rocclr (6.2.4-8) unstable; urgency=medium
+
+  * Fix HIP_PATH issue.
+
+ --  <chenxuan@iscas.ac.cn>  Thu, 10 Apr 2025 23:47:00 +0800
+
 rocm-hip-on-rocclr (6.2.4-7) unstable; urgency=medium
 
   * Release for hipcc change.

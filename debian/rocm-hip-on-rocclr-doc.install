@@ -1,2 +1,2 @@
-opt/rocm-@ROCM_VERSION@/share/ usr/
+opt/rocm-@ROCM_VERSION@/share/doc usr/share
 
