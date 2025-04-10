@@ -5,7 +5,8 @@ export DH_VERBOSE = 1
 PKG_NAME=rocm-hip-on-rocclr
 
 ROCM_VERSION=$(shell cat /opt/REVYOS_ROCM_VERSION)
-ROCM_PATH=/opt/rocm-$(ROCM_VERSION)
+export ROCM_PATH=/opt/rocm-$(ROCM_VERSION)
+export HIP_PATH=$(ROCM_PATH)
 
 MAKEOPTS="-j$$(($$(nproc) / 4))"
 
@@ -43,6 +44,11 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	cmake --build $(BUILD_PATH) -- $(MAKEOPTS)
+
+override_dh_auto_test:
+	make -C $(BUILD_PATH) $(MAKEOPTS) build_tests
+	make -C $(BUILD_PATH) $(MAKEOPTS) package_test
+
 
 override_dh_auto_install:
 	DESTDIR=$(DEB_INST_DIR)/ cmake --build $(BUILD_PATH) -- $(MAKEOPTS) install
