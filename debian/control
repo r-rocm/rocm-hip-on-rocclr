@@ -8,11 +8,11 @@ Build-Depends:
  cmake,
  pkg-config,
  rocm-env,
+ rocm-core,
  rocm-cmake,
  rocm-llvm,
-# rocm-rocprofiler-register, (change name)
- rocprofiler-register-rocm,
- rocm-hsa,
+ rocm-rocprofiler-register-dev,
+ rocm-hsa-dev,
  rocm-comgr,
  rocm-hipcc,
  libedit-dev,
@@ -36,6 +36,8 @@ Depends:
  ${misc:Depends},
  rocm-hsa,
  rocm-comgr,
+ rocm-core,
+ rocm-rocprofiler-register,
 Conflicts:
  rocm-hipcc,
 Description: rocclr with hip binary files
