@@ -1,3 +1,9 @@
+rocm-hip-on-rocclr (6.2.4-9) unstable; urgency=medium
+
+  * Rebuild with new Trixie base.
+
+ --  <chenxuan@iscas.ac.cn>  Wed, 09 Jul 2025 12:19:07 +0800
+
 rocm-hip-on-rocclr (6.2.4-8) unstable; urgency=medium
 
   * Fix HIP_PATH issue.
