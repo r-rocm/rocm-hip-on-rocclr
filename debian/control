@@ -26,8 +26,8 @@ Build-Depends:
  zlib1g-dev,
 Standards-Version: 4.7.0
 Homepage: https://github.com/ROCm
-Vcs-Browser: https://github.com/r-rocm/rocm-hip-on-rocclr
-Vcs-Git: https://github.com/r-rocm/rocm-hip-on-rocclr.git
+Vcs-Browser: https://github.com/revyos-rocm/rocm-hip-on-rocclr
+Vcs-Git: https://github.com/revyos-rocm/rocm-hip-on-rocclr.git
 
 Package: rocm-hip-on-rocclr
 Architecture: any
