@@ -12,7 +12,7 @@ Build-Depends:
  rocm-cmake,
  rocm-llvm,
  rocm-rocprofiler-register-dev,
- rocm-hsa-dev,
+ rocm-rocr-dev,
  rocm-comgr,
  rocm-hipcc,
  libedit-dev,
@@ -34,7 +34,7 @@ Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
- rocm-hsa,
+ rocm-rocr,
  rocm-comgr,
  rocm-core,
  rocm-rocprofiler-register,
