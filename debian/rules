@@ -46,10 +46,14 @@ REVYOS_ROCM_CLR_CMAKE_PARAMS += -DCLR_BUILD_HIP=ON
 REVYOS_ROCM_CLR_CMAKE_PARAMS += -DCLR_BUILD_OCL=ON
 REVYOS_ROCM_CLR_CMAKE_PARAMS += -DBUILD_ICD=ON
 
+# Enable this to support roctracer
+# See clr/hipamd/src/CMakeLists.txt
+REVYOS_ROCM_CLR_CMAKE_PARAMS += -DUSE_PROF_API=OFF
+
 override_dh_auto_configure:
 	cmake $(REVYOS_ROCM_CMAKE_PARAMS) $(REVYOS_ROCM_CLR_CMAKE_PARAMS)
 
-# -DUSE_PROF_API=OFF
+#
 # -DHIPNV_DIR=$(SRC_HIP_OTHER)/hipnv \
 
 override_dh_auto_build:
