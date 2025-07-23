@@ -10,10 +10,10 @@ Subject: fix riscv64 abi
  4 files changed, 10 insertions(+), 3 deletions(-)
 
 diff --git a/clr/rocclr/device/rocm/rocvirtual.cpp b/clr/rocclr/device/rocm/rocvirtual.cpp
-index f81b048..e2ceae5 100755
+index cb17036..1f8ec11 100755
 --- a/clr/rocclr/device/rocm/rocvirtual.cpp
 +++ b/clr/rocclr/device/rocm/rocvirtual.cpp
-@@ -3154,7 +3154,7 @@ static inline void nontemporalMemcpy(
+@@ -3159,7 +3159,7 @@ static inline void nontemporalMemcpy(
    std::memcpy(dst, src, size);
  
    // Add memory fence
@@ -22,7 +22,7 @@ index f81b048..e2ceae5 100755
  #else
    std::memcpy(dst, src, size);
  #endif
-@@ -3459,9 +3459,9 @@ bool VirtualGPU::submitKernelInternal(const amd::NDRangeContainer& sizes,
+@@ -3464,9 +3464,9 @@ bool VirtualGPU::submitKernelInternal(const amd::NDRangeContainer& sizes,
            auto kSentinel = *reinterpret_cast<volatile int*>(dev().info().hdpMemFlushCntl);
          } else if (kernArgImpl == KernelArgImpl::DeviceKernelArgsReadback &&
                     argSize != 0) {
