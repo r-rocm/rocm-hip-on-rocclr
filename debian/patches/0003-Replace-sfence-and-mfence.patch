@@ -1,0 +1,30 @@
+From: Sakura286 <sakura286@outlook.com>
+Date: Wed, 23 Jul 2025 14:32:32 +0800
+Subject: Replace sfence and mfence
+
+---
+ clr/hipamd/src/hip_graph_internal.cpp | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/clr/hipamd/src/hip_graph_internal.cpp b/clr/hipamd/src/hip_graph_internal.cpp
+index e88454e..df2edec 100644
+--- a/clr/hipamd/src/hip_graph_internal.cpp
++++ b/clr/hipamd/src/hip_graph_internal.cpp
+@@ -797,9 +797,17 @@ void GraphKernelArgManager::ReadBackOrFlush() {
+       address dev_ptr =
+           kernarg_graph_.back().kernarg_pool_addr_ + kernarg_graph_.back().kernarg_pool_size_;
+       auto kSentinel = *reinterpret_cast<volatile unsigned char*>(dev_ptr - 1);
++#if !defined(__riscv)
+       _mm_sfence();
++#else
++      asm volatile("fence w,w" ::: "memory");
++#endif
+       *(dev_ptr - 1) = kSentinel;
++#if !defined(__riscv)
+       _mm_mfence();
++#else
++      asm volatile("fence w,w" ::: "memory");
++#endif
+       kSentinel = *reinterpret_cast<volatile unsigned char*>(dev_ptr - 1);
+     }
+   }
