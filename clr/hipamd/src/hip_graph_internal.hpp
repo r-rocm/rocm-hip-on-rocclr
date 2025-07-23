@@ -46,6 +46,9 @@ struct GraphNode;
 struct GraphExec;
 struct UserObject;
 typedef GraphNode* Node;
+hipError_t ihipGraphAddNode(hip::GraphNode* graphNode, hip::Graph* graph,
+                                   hip::GraphNode* const* pDependencies, size_t numDependencies,
+                                   bool capture);
 struct UserObject : public amd::ReferenceCountedObject {
   typedef void (*UserCallbackDestructor)(void* data);
   static std::unordered_set<UserObject*> ObjectSet_;
@@ -465,6 +468,59 @@ struct GraphNode : public hipGraphNodeDOTAttribute {
   }
 };
 
+class GraphEventWaitNode : public GraphNode {
+  hipEvent_t event_;
+
+ public:
+  GraphEventWaitNode(hipEvent_t event)
+      : GraphNode(hipGraphNodeTypeWaitEvent, "solid", "rectangle", "EVENT_WAIT"),
+        event_(event) {}
+  ~GraphEventWaitNode() {}
+
+  GraphNode* clone() const override {
+    return new GraphEventWaitNode(static_cast<GraphEventWaitNode const&>(*this));
+  }
+
+  hipError_t CreateCommand(hip::Stream* stream) override {
+    hipError_t status = GraphNode::CreateCommand(stream);
+    if (status != hipSuccess) {
+      return status;
+    }
+    hip::Event* e = reinterpret_cast<hip::Event*>(event_);
+    commands_.reserve(1);
+    amd::Command* command;
+    status = e->streamWaitCommand(command, stream);
+    commands_.emplace_back(command);
+    return status;
+  }
+
+  void EnqueueCommands(hip::Stream* stream) override {
+    if (!commands_.empty()) {
+      hip::Event* e = reinterpret_cast<hip::Event*>(event_);
+      hipError_t status =
+        e->enqueueStreamWaitCommand(reinterpret_cast<hipStream_t>(stream), commands_[0]);
+      if (status != hipSuccess) {
+        ClPrint(amd::LOG_ERROR, amd::LOG_CODE,
+                "[hipGraph] Enqueue stream wait command failed for node %p - status %d", this,
+                status);
+      }
+      commands_[0]->release();
+    }
+  }
+
+  void GetParams(hipEvent_t* event) const { *event = event_; }
+
+  hipError_t SetParams(hipEvent_t event) {
+    event_ = event;
+    return hipSuccess;
+  }
+
+  hipError_t SetParams(GraphNode* node) override {
+    const GraphEventWaitNode* eventWaitNode = static_cast<GraphEventWaitNode const*>(node);
+    return SetParams(eventWaitNode->event_);
+  }
+};
+
 struct Graph {
   // Mark GraphExec as friend for faster access to the Graph fields.
   // (@todo GrpahExec should be derived from Graph)
@@ -499,7 +555,6 @@ struct Graph {
     amd::ScopedLock lock(graphSetLock_);
     graphSet_.insert(this);
     mem_pool_ = device->GetGraphMemoryPool();
-    mem_pool_->retain();
     graphInstantiated_ = false;
     roots_.resize(DEBUG_HIP_FORCE_GRAPH_QUEUES);
     leafs_.resize(DEBUG_HIP_FORCE_GRAPH_QUEUES);
@@ -537,15 +592,22 @@ struct Graph {
       }
     }
     graphUserObj_.clear();
-    if (mem_pool_ != nullptr) {
-      mem_pool_->release();
-    }
     memAllocNodePtrs_.clear();
   }
 
   void AddManualNodeDuringCapture(GraphNode* node) { capturedNodes_.insert(node); }
 
   std::unordered_set<GraphNode*> GetManualNodesDuringCapture() { return capturedNodes_; }
+
+  GraphNode* AddExternalEventWaitNode(hip::GraphNode* pDependencies, size_t numDependencies,
+    hipEvent_t event) {
+    GraphNode* node = new GraphEventWaitNode(event);
+    for (size_t i = 0; i < numDependencies; i++) {
+      pDependencies[i].AddEdgeDep(node);
+    }
+    AddNode(node);
+    return node;
+  }
 
   void RemoveManualNodesDuringCapture() {
     capturedNodes_.erase(capturedNodes_.begin(), capturedNodes_.end());
@@ -761,17 +823,18 @@ struct GraphExec : public amd::ReferenceCountedObject {
   ~GraphExec() {
     for (auto stream : parallel_streams_) {
       if (stream != nullptr) {
-        stream->finish();
-        hip::Stream::Destroy(stream);
+        constexpr bool kForceDestroy = true;
+        hip::Stream::Destroy(stream, kForceDestroy);
       }
     }
-    amd::ScopedLock lock(graphExecSetLock_);
-    graphExecSet_.erase(this);
     delete clonedGraph_;
     if (DEBUG_CLR_GRAPH_PACKET_CAPTURE) {
       if (kernArgManager_ != nullptr) {
         kernArgManager_->release();
       }
+    }
+    if (instantiateDeviceId_ != -1) {
+      static_cast<ReferenceCountedObject*>(g_devices[instantiateDeviceId_])->release();
     }
   }
 
@@ -2146,59 +2209,6 @@ class GraphEventRecordNode : public GraphNode {
   }
 };
 
-class GraphEventWaitNode : public GraphNode {
-  hipEvent_t event_;
-
- public:
-  GraphEventWaitNode(hipEvent_t event)
-      : GraphNode(hipGraphNodeTypeWaitEvent, "solid", "rectangle", "EVENT_WAIT"),
-        event_(event) {}
-  ~GraphEventWaitNode() {}
-
-  GraphNode* clone() const override {
-    return new GraphEventWaitNode(static_cast<GraphEventWaitNode const&>(*this));
-  }
-
-  hipError_t CreateCommand(hip::Stream* stream) override {
-    hipError_t status = GraphNode::CreateCommand(stream);
-    if (status != hipSuccess) {
-      return status;
-    }
-    hip::Event* e = reinterpret_cast<hip::Event*>(event_);
-    commands_.reserve(1);
-    amd::Command* command;
-    status = e->streamWaitCommand(command, stream);
-    commands_.emplace_back(command);
-    return status;
-  }
-
-  void EnqueueCommands(hip::Stream* stream) override {
-    if (!commands_.empty()) {
-      hip::Event* e = reinterpret_cast<hip::Event*>(event_);
-      hipError_t status =
-        e->enqueueStreamWaitCommand(reinterpret_cast<hipStream_t>(stream), commands_[0]);
-      if (status != hipSuccess) {
-        ClPrint(amd::LOG_ERROR, amd::LOG_CODE,
-                "[hipGraph] Enqueue stream wait command failed for node %p - status %d", this,
-                status);
-      }
-      commands_[0]->release();
-    }
-  }
-
-  void GetParams(hipEvent_t* event) const { *event = event_; }
-
-  hipError_t SetParams(hipEvent_t event) {
-    event_ = event;
-    return hipSuccess;
-  }
-
-  hipError_t SetParams(GraphNode* node) override {
-    const GraphEventWaitNode* eventWaitNode = static_cast<GraphEventWaitNode const*>(node);
-    return SetParams(eventWaitNode->event_);
-  }
-};
-
 class GraphHostNode : public GraphNode {
   hipHostNodeParams NodeParams_;
 
@@ -2333,10 +2343,6 @@ class GraphMemAllocNode final : public GraphNode {
       memory_ = getMemoryObject(dptr, offset);
       // Retain memory object because command release will release it
       memory_->retain();
-
-      // Remove because the entry is not needed in MemObjMap after the memory_ has been saved.
-      // The Phy mem obj will be saved in virtual memory object during VirtualMapCommand::submit.
-      amd::MemObjMap::RemoveMemObj(dptr);
       size_ = aligned_size;
       // Execute the original mapping command
       VirtualMapCommand::submit(device);

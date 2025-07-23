@@ -20,6 +20,7 @@
 
 #include <hip/hip_runtime.h>
 #include "hip_internal.hpp"
+#include "hip_graph_internal.hpp"
 #include "hip_event.hpp"
 #include "thread/monitor.hpp"
 #include "hip_prof_api.h"
@@ -72,9 +73,10 @@ bool Stream::Create() {
 }
 
 // ================================================================================================
-void Stream::Destroy(hip::Stream* stream) {
+void Stream::Destroy(hip::Stream* stream, bool forceDestroy) {
   stream->device().removeFromActiveQueues(stream);
   stream->device_->RemoveStream(stream);
+  stream->SetForceDestroy(forceDestroy);
   stream->release();
   stream = nullptr;
 }
@@ -397,7 +399,7 @@ hipError_t hipStreamDestroy(hipStream_t stream) {
   if (stream == nullptr) {
     HIP_RETURN(hipErrorInvalidHandle);
   }
-  if (stream == hipStreamPerThread) {
+  if (stream == hipStreamPerThread || stream == hipStreamLegacy) {
     HIP_RETURN(hipErrorInvalidResourceHandle);
   }
   if (!hip::isValid(stream)) {
@@ -449,6 +451,9 @@ void WaitThenDecrementSignal(hipStream_t stream, hipError_t status, void* user_d
 
 // ================================================================================================
 hipError_t hipStreamWaitEvent_common(hipStream_t stream, hipEvent_t event, unsigned int flags) {
+  if (flags != hipEventWaitDefault && flags != hipEventWaitExternal) {
+    return hipErrorInvalidValue;
+  }
   hipError_t status = hipSuccess;
   if (event == nullptr || !hip::isValid(stream)) {
     return hipErrorInvalidHandle;
@@ -464,7 +469,16 @@ hipError_t hipStreamWaitEvent_common(hipStream_t stream, hipEvent_t event, unsig
   }
 
   hip::Stream* eventStream = reinterpret_cast<hip::Stream*>(eventStreamHandle);
-  if (eventStream != nullptr && eventStream->IsEventCaptured(event) == true) {
+  if (flags == hipEventWaitExternal) {
+    auto lastCapturedNodes = waitStream->GetLastCapturedNodes();
+    hip::GraphNode* pGraphNode = waitStream->GetCaptureGraph()->AddExternalEventWaitNode(
+                                      (hip::GraphNode*)lastCapturedNodes.data(),
+                                      lastCapturedNodes.size(),
+                                      event);
+    waitStream->SetLastCapturedNode(pGraphNode);
+    return hipSuccess;
+  }
+  else if (eventStream != nullptr && eventStream->IsEventCaptured(event) == true) {
     ClPrint(amd::LOG_INFO, amd::LOG_API,
           "[hipGraph] Current capture node StreamWaitEvent on stream : %p, Event %p", stream,
           event);
@@ -480,15 +494,13 @@ hipError_t hipStreamWaitEvent_common(hipStream_t stream, hipEvent_t event, unsig
     }
     waitStream->AddCrossCapturedNode(e->GetNodesPrevToRecorded());
   } else {
-    if (flags != 0) {
-      return hipErrorInvalidValue;
-    }
     if (eventStream != nullptr) {
       if (eventStream->GetCaptureStatus() == hipStreamCaptureStatusActive) {
         // If stream is capturing but event is not recorded on event's stream.
         return hipErrorStreamCaptureIsolation;
       }
-      if ((waitStream != nullptr) && (eventStream->DeviceId() == waitStream->DeviceId())) {
+      if ((waitStream != nullptr && stream != hipStreamLegacy) &&
+          (eventStream->DeviceId() == waitStream->DeviceId())) {
         eventStream->GetDevice()->AddSafeStream(eventStream, waitStream);
       }
     }
