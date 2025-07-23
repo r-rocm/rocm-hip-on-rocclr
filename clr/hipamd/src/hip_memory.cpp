@@ -343,11 +343,11 @@ hipError_t ihipMalloc(void** ptr, size_t sizeBytes, unsigned int flags)
   const auto& dev_info = amdContext->devices()[0]->info();
   hip::getCurrentDevice()->SetActiveStatus();
 
-  if (dev_info.maxPhysicalMemAllocSize_ < sizeBytes) {
-    return hipErrorOutOfMemory;
-  }
-  // PAL allocates from system memory if needed
-  if (IS_LINUX && !useHostDevice && (dev_info.maxMemAllocSize_ < sizeBytes)) {
+  size_t max_device_size = IS_LINUX ? dev_info.maxMemAllocSize_ :
+                           (dev_info.maxMemAllocSize_ +  dev_info.maxPhysicalMemAllocSize_);
+
+  if ((useHostDevice && dev_info.maxPhysicalMemAllocSize_ < sizeBytes) ||
+     (!useHostDevice && max_device_size < sizeBytes)) {
     return hipErrorOutOfMemory;
   }
 
@@ -3935,7 +3935,17 @@ hipError_t ihipPointerGetAttributes(void* data, hipPointer_attribute attribute,
 
     switch (attribute) {
       case HIP_POINTER_ATTRIBUTE_CONTEXT : {
-        status = hipErrorNotSupported;
+        if (memObj) {
+          amd::Context& context = memObj->getContext();
+          int devId = getDeviceID(context);
+          if (devId >= 0) {
+            *reinterpret_cast<hipCtx_t*>(data) = reinterpret_cast<hipCtx_t>(g_devices[devId]);
+          } else {
+            return hipErrorInvalidValue;
+          }
+        } else {
+          return hipErrorInvalidValue;
+        }
         break;
       }
       case HIP_POINTER_ATTRIBUTE_MEMORY_TYPE : {

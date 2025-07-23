@@ -2367,8 +2367,9 @@ void* Device::deviceLocalAlloc(size_t size, bool atomics, bool pseudo_fine_grain
   }
 
   void* ptr = nullptr;
-  hsa_status_t stat = hsa_amd_memory_pool_allocate(pool, size, 0, &ptr);
-  ClPrint(amd::LOG_DEBUG, amd::LOG_MEM, "Allocate hsa device memory %p, size 0x%zx", ptr, size);
+  hsa_status_t stat = hsa_amd_memory_pool_allocate(pool, size, hsa_mem_flags, &ptr);
+  ClPrint(amd::LOG_DEBUG, amd::LOG_MEM,
+      "Allocate hsa device memory %p, size 0x%zx, hsa_mem_flags 0x%xh", ptr, size, hsa_mem_flags);
   if (stat != HSA_STATUS_SUCCESS) {
     LogError("Fail allocation local memory");
     return nullptr;
@@ -3552,6 +3553,10 @@ bool Device::IsValidAllocation(const void* dev_ptr, size_t size, hsa_amd_pointer
   // The call should never fail in ROCR, but just check for an error and continue
   if (status != HSA_STATUS_SUCCESS) {
     LogError("hsa_amd_pointer_info() failed");
+  }
+
+  if (ptr_info->type == HSA_EXT_POINTER_TYPE_RESERVED_ADDR) {
+    return false;
   }
 
   // Return false for pinned memory. A true return may result in a race because
