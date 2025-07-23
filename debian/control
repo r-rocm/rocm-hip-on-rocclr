@@ -22,6 +22,7 @@ Build-Depends:
  libxml2-dev,
  libzstd-dev,
  python3-sphinx,
+ python3-cxxheaderparser,
  terminfo,
  zlib1g-dev,
 Standards-Version: 4.7.0
