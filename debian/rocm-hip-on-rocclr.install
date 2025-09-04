@@ -2,3 +2,4 @@ opt/rocm-@ROCM_VERSION@/bin
 opt/rocm-@ROCM_VERSION@/lib/.hipInfo
 opt/rocm-@ROCM_VERSION@/lib/lib*
 opt/rocm-@ROCM_VERSION@/share/hip
+opt/rocm-@ROCM_VERSION@/share/doc usr/share
