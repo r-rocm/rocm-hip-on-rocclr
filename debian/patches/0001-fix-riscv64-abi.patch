@@ -1,39 +1,32 @@
-From: Sakura286 <sakura286@outlook.com>
-Date: Tue, 22 Jul 2025 15:21:08 +0800
-Subject: fix riscv64 abi
-
----
- clr/rocclr/device/rocm/rocvirtual.cpp | 6 +++---
- clr/rocclr/include/top.hpp            | 2 ++
- clr/rocclr/os/os.hpp                  | 3 +++
- clr/rocclr/os/os_posix.cpp            | 2 ++
- 4 files changed, 10 insertions(+), 3 deletions(-)
-
 diff --git a/clr/rocclr/device/rocm/rocvirtual.cpp b/clr/rocclr/device/rocm/rocvirtual.cpp
-index cb17036..1f8ec11 100755
+index f4e5799..8b363c2 100644
 --- a/clr/rocclr/device/rocm/rocvirtual.cpp
 +++ b/clr/rocclr/device/rocm/rocvirtual.cpp
-@@ -3159,7 +3159,7 @@ static inline void nontemporalMemcpy(
+@@ -3300,7 +3300,11 @@ static inline void nontemporalMemcpy(
    std::memcpy(dst, src, size);
  
    // Add memory fence
--  _mm_sfence();
-+  asm volatile("fence rw,rw" ::: "memory");
++#if !defined(__riscv)
+   _mm_sfence();
++#else
++  asm volatile("fence w,w" ::: "memory");
++#endif
  #else
    std::memcpy(dst, src, size);
  #endif
-@@ -3464,9 +3464,9 @@ bool VirtualGPU::submitKernelInternal(const amd::NDRangeContainer& sizes,
-           auto kSentinel = *reinterpret_cast<volatile int*>(dev().info().hdpMemFlushCntl);
-         } else if (kernArgImpl == KernelArgImpl::DeviceKernelArgsReadback &&
-                    argSize != 0) {
--          _mm_sfence();
+@@ -3555,7 +3559,11 @@ bool VirtualGPU::submitKernelInternal(const amd::NDRangeContainer& sizes,
+         *dev().info().hdpMemFlushCntl = 1u;
+         auto kSentinel = *reinterpret_cast<volatile int*>(dev().info().hdpMemFlushCntl);
+       } else if (kernArgImpl == KernelArgImpl::DeviceKernelArgsReadback && argSize != 0) {
+-        _mm_sfence();
++#if !defined(__riscv)
++          _mm_sfence();
++#else
 +          asm volatile("fence w,w" ::: "memory");
-           *(argBuffer + argSize - 1) = *(parameters + argSize - 1);
--          _mm_mfence();
-+          asm volatile("fence rw,rw" ::: "memory");
-           auto kSentinel = *reinterpret_cast<volatile unsigned char*>(
-               argBuffer + argSize - 1);
-         }
++#endif
+         *(argBuffer + argSize - 1) = *(parameters + argSize - 1);
+         _mm_mfence();
+         auto kSentinel = *reinterpret_cast<volatile unsigned char*>(argBuffer + argSize - 1);
 diff --git a/clr/rocclr/include/top.hpp b/clr/rocclr/include/top.hpp
 index d6aa00c..99b5ae9 100644
 --- a/clr/rocclr/include/top.hpp
@@ -48,10 +41,10 @@ index d6aa00c..99b5ae9 100644
  
  #if defined(ATI_ARCH_ARM)
 diff --git a/clr/rocclr/os/os.hpp b/clr/rocclr/os/os.hpp
-index 8509cc3..2725bdf 100644
+index e8b7c0d..7a872e6 100644
 --- a/clr/rocclr/os/os.hpp
 +++ b/clr/rocclr/os/os.hpp
-@@ -358,6 +358,9 @@ ALWAYSINLINE address Os::currentStackPtr() {
+@@ -361,6 +361,9 @@ ALWAYSINLINE address Os::currentStackPtr() {
  #elif defined(ATI_ARCH_ARM)
        "mov %0,sp"
        : "=r"(value)
@@ -62,7 +55,7 @@ index 8509cc3..2725bdf 100644
        ""
  #endif
 diff --git a/clr/rocclr/os/os_posix.cpp b/clr/rocclr/os/os_posix.cpp
-index 86c199b..7f19df1 100644
+index 6ee3678..de97245 100644
 --- a/clr/rocclr/os/os_posix.cpp
 +++ b/clr/rocclr/os/os_posix.cpp
 @@ -318,8 +318,10 @@ void Os::currentStackInfo(address* base, size_t* size) {
