@@ -129,10 +129,9 @@ void Program::clear() {
 // ================================================================================================
 bool Program::compileImpl(const std::string& sourceCode,
                           const std::vector<const std::string*>& headers,
-                          const char** headerIncludeNames, amd::option::Options* options,
-                          const std::vector<std::string>& preCompiledHeaders) {
+                          const char** headerIncludeNames, amd::option::Options* options) {
   if (isLC()) {
-    return compileImplLC(sourceCode, headers, headerIncludeNames, options, preCompiledHeaders);
+    return compileImplLC(sourceCode, headers, headerIncludeNames, options);
   } else {
     return compileImplHSAIL(sourceCode, headers, headerIncludeNames, options);
   }
@@ -221,33 +220,6 @@ amd_comgr_status_t Program::extractByteCodeBinary(const amd_comgr_data_set_t inD
     delete[] binary;
   }
   return AMD_COMGR_STATUS_SUCCESS;
-}
-
-amd_comgr_status_t Program::addPreCompiledHeader(
-    amd_comgr_data_set_t* dataSet, const std::vector<std::string>& preCompiledHeaders) {
-  amd_comgr_status_t status = AMD_COMGR_STATUS_SUCCESS;
-  if (preCompiledHeaders.size() > 0) {
-    for (auto& i : preCompiledHeaders) {
-      amd_comgr_data_t pch_data;
-      status = amd::Comgr::create_data(AMD_COMGR_DATA_KIND_PRECOMPILED_HEADER, &pch_data);
-      if (status != AMD_COMGR_STATUS_SUCCESS) {
-        return status;
-      }
-
-      status = amd::Comgr::set_data(pch_data, i.size(), i.c_str());
-
-      if (status == AMD_COMGR_STATUS_SUCCESS) {
-        status = amd::Comgr::set_data_name(pch_data, "PreCompiledHeader");
-      }
-
-      if (status == AMD_COMGR_STATUS_SUCCESS) {
-        status = amd::Comgr::data_set_add(*dataSet, pch_data);
-      }
-
-      amd::Comgr::release_data(pch_data);
-    }
-  }
-  return status;
 }
 
 amd_comgr_status_t Program::addCodeObjData(const char *source,
@@ -604,8 +576,7 @@ static std::size_t getOCLOptionsHash(const amd::option::Options &options) {
 
 bool Program::compileImplLC(const std::string& sourceCode,
                             const std::vector<const std::string*>& headers,
-                            const char** headerIncludeNames, amd::option::Options* options,
-                            const std::vector<std::string>& preCompiledHeaders) {
+                            const char** headerIncludeNames, amd::option::Options* options) {
 #if  defined(USE_COMGR_LIBRARY)
   const char* xLang = options->oVariables->XLang;
   if (xLang != nullptr) {
@@ -625,13 +596,6 @@ bool Program::compileImplLC(const std::string& sourceCode,
     buildLog_ += "Error: COMGR fails to create output buffer for LLVM bitcode.\n";
     return false;
   }
-
-  if (preCompiledHeaders.size() > 0)
-    if (addPreCompiledHeader(&inputs, preCompiledHeaders) != AMD_COMGR_STATUS_SUCCESS) {
-      buildLog_ += "Error: COMGR failed to add precompiled Headers.\n";
-      amd::Comgr::destroy_data_set(inputs);
-      return false;
-    }
 
   if (addCodeObjData(sourceCode.c_str(), sourceCode.length(), AMD_COMGR_DATA_KIND_SOURCE,
                      "CompileSource", &inputs) != AMD_COMGR_STATUS_SUCCESS) {
@@ -1227,8 +1191,20 @@ bool Program::linkImplLC(amd::option::Options* options) {
   codegenOptions.push_back(optLevel.str());
 
   // Pass clang options
-  codegenOptions.insert(codegenOptions.end(),
-      options->clangOptions.begin(), options->clangOptions.end());
+  if (continueCompileFrom != FILE_TYPE_ASM_TEXT) {
+    std::copy_if(
+      options->clangOptions.begin(),
+      options->clangOptions.end(),
+      std::back_inserter(codegenOptions),
+      [](const std::string& opt) {
+        return opt.rfind("-I", 0) != 0;
+      }
+    );
+  } else {
+    codegenOptions.insert(codegenOptions.end(),
+                          options->clangOptions.begin(),
+                          options->clangOptions.end());
+  }
 
   // Temporarily disable problematic pass for some Adobe apps.
   {
@@ -1506,7 +1482,7 @@ int32_t Program::compile(const std::string& sourceCode,
 
   // Compile the source code if any
   if ((buildStatus_ == CL_BUILD_IN_PROGRESS) && !sourceCode.empty() &&
-      !compileImpl(sourceCode, headers, headerIncludeNames, options, {})) {
+      !compileImpl(sourceCode, headers, headerIncludeNames, options)) {
     buildStatus_ = CL_BUILD_ERROR;
     if (buildLog_.empty()) {
       buildLog_ = "Internal error: Compilation failed.";
@@ -1741,8 +1717,7 @@ bool Program::trySubstObjFile(const char *SubstCfgFile,
 }
 
 int32_t Program::build(const std::string& sourceCode, const char* origOptions,
-                       amd::option::Options* options,
-                       const std::vector<std::string>& preCompiledHeaders) {
+                       amd::option::Options* options) {
   if (AMD_OCL_SUBST_OBJFILE != NULL &&
       trySubstObjFile(AMD_OCL_SUBST_OBJFILE, sourceCode, options)) {
     return buildError();
@@ -1787,10 +1762,9 @@ int32_t Program::build(const std::string& sourceCode, const char* origOptions,
   bool compileStatus = true;
   if ((buildStatus_ == CL_BUILD_IN_PROGRESS) && !sourceCode.empty()) {
     if (!headerIncludeNames.empty()) {
-      compileStatus =
-          compileImpl(sourceCode, headers, &headerIncludeNames[0], options, preCompiledHeaders);
+      compileStatus = compileImpl(sourceCode, headers, &headerIncludeNames[0], options);
     } else {
-      compileStatus = compileImpl(sourceCode, headers, nullptr, options, preCompiledHeaders);
+      compileStatus = compileImpl(sourceCode, headers, nullptr, options);
     }
   }
   if (!compileStatus) {
@@ -1914,12 +1888,8 @@ std::vector<std::string> Program::ProcessOptions(amd::option::Options* options) 
 
     // Set options for the standard device specific options
     // All our devices support these options now
-    if (device().settings().reportFMAF_) {
-      optionsVec.push_back("-DFP_FAST_FMAF=1");
-    }
-    if (device().settings().reportFMA_) {
-      optionsVec.push_back("-DFP_FAST_FMA=1");
-    }
+    optionsVec.push_back("-DFP_FAST_FMAF=1");
+    optionsVec.push_back("-DFP_FAST_FMA=1");
   } else {
 
     if (!isHIP()) {
@@ -1964,13 +1934,6 @@ std::vector<std::string> Program::ProcessOptions(amd::option::Options* options) 
     std::vector<std::string> extensions(sit, end);
 
     if (isLC()) {
-      // FIXME_lmoriche: opencl-c.h defines 'cl_khr_depth_images', so
-      // remove it from the command line. Should we fix opencl-c.h?
-      auto found = std::find(extensions.begin(), extensions.end(), "cl_khr_depth_images");
-      if (found != extensions.end()) {
-        extensions.erase(found);
-      }
-
       if (!extensions.empty()) {
         std::ostringstream clext;
 

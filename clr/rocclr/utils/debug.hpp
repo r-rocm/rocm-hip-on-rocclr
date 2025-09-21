@@ -69,11 +69,6 @@ enum LogMask {
   LOG_ALWAYS    = -1      //!< (0xFFFFFFFF) Log always even mask flag is zero
 };
 
-// Flags to support backward incompatible changes before 7.0
-enum BreakingHipChange7 {
-  CHANGE_HIP_GET_LAST_ERROR = 1,              //!< (0x1)     HIP_GET_LAST_ERROR
-};
-
 //! \brief log file output
 extern FILE* outFile;
 
@@ -214,6 +209,8 @@ inline void warning(const char* msg) { amd::report_warning(msg); }
     }                                                                                              \
   } while (false)
 
+#define IsLogEnabled(level, mask) (AMD_LOG_LEVEL >= level && (AMD_LOG_MASK & mask || AMD_LOG_MASK == amd::LOG_ALWAYS))
+
 //called on entry and exit, calculates duration with local starttime variable defined in HIP_INIT_API
 #define HIPPrintDuration(level, mask, startTimeUs, format, ...)                                    \
   do {                                                                                             \
@@ -240,6 +237,7 @@ inline void warning(const char* msg) { amd::report_warning(msg); }
 #else /*CL_LOG*/
 #define ClPrint(level, mask, format, ...) (void)(0)
 #define ClCondPrint(level, mask, condition, format, ...) (void)(0)
+#define HIPPrintDuration(level, mask, startTimeUs, format, ...) (void)(0)
 #endif /*CL_LOG*/
 
 #define ClTrace(level, mask) ClPrint(level, mask, "%s", __func__)
@@ -248,13 +246,13 @@ inline void warning(const char* msg) { amd::report_warning(msg); }
 #define LogError(msg) ClPrint(amd::LOG_ERROR, amd::LOG_ALWAYS, msg)
 #define LogWarning(msg) ClPrint(amd::LOG_WARNING, amd::LOG_ALWAYS, msg)
 
-#define LogPrintfDebug(format, ...) ClPrint(amd::LOG_DEBUG, amd::LOG_ALWAYS, format, __VA_ARGS__)
-#define LogPrintfError(format, ...) ClPrint(amd::LOG_ERROR, amd::LOG_ALWAYS, format, __VA_ARGS__)
-#define LogPrintfWarning(format, ...) ClPrint(amd::LOG_WARNING, amd::LOG_ALWAYS, format, __VA_ARGS__)
-#define LogPrintfInfo(format, ...) ClPrint(amd::LOG_INFO, amd::LOG_ALWAYS, format, __VA_ARGS__)
+#define LogPrintfDebug(format, ...) ClPrint(amd::LOG_DEBUG, amd::LOG_ALWAYS, format, ##__VA_ARGS__)
+#define LogPrintfError(format, ...) ClPrint(amd::LOG_ERROR, amd::LOG_ALWAYS, format, ##__VA_ARGS__)
+#define LogPrintfWarning(format, ...) ClPrint(amd::LOG_WARNING, amd::LOG_ALWAYS, format, ##__VA_ARGS__)
+#define LogPrintfInfo(format, ...) ClPrint(amd::LOG_INFO, amd::LOG_ALWAYS, format, ##__VA_ARGS__)
 
 #if (defined(DEBUG) || defined(DEV_LOG_ENABLE))
-  #define DevLogPrintfError(format, ...) LogPrintfError(format, __VA_ARGS__)
+  #define DevLogPrintfError(format, ...)  LogPrintfError(format, ##__VA_ARGS__)
   #define DevLogError(msg) LogError(msg)
 #else
   #define DevLogPrintfError(format, ...)

@@ -284,8 +284,11 @@ hipError_t hipDeviceGetAttribute(int* pi, hipDeviceAttribute_t attr, int device)
     case hipDeviceAttributePciDeviceId:
       *pi = prop.pciDeviceID;
       break;
-    case hipDeviceAttributePciDomainID:
+    case hipDeviceAttributePciDomainId:
       *pi = prop.pciDomainID;
+      break;
+    case hipDeviceAttributePciChipId:
+      *pi = static_cast<int>(g_devices[device]->devices()[0]->info().pcieDeviceId_);
       break;
     case hipDeviceAttributePersistingL2CacheMaxSize:
       *pi = prop.persistingL2CacheMaxSize;
@@ -445,6 +448,9 @@ hipError_t hipDeviceGetAttribute(int* pi, hipDeviceAttribute_t attr, int device)
     case hipDeviceAttributeAccessPolicyMaxWindowSize:
       *pi = prop.accessPolicyMaxWindowSize;
        break;
+    case hipDeviceAttributeNumberOfXccs:
+      *pi = static_cast<int>(g_devices[device]->devices()[0]->info().numberOfXccs_);
+       break;
     default:
       HIP_RETURN(hipErrorInvalidValue);
   }
@@ -519,6 +525,15 @@ hipError_t hipDeviceGetLimit(size_t* pValue, hipLimit_t limit) {
     case hipLimitStackSize:
       *pValue = hip::getCurrentDevice()->devices()[0]->StackSize();
       break;
+    case hipExtLimitScratchMin:
+      *pValue = hip::getCurrentDevice()->devices()[0]->info().scratchLimitMin;
+      break;
+    case hipExtLimitScratchMax:
+      *pValue = hip::getCurrentDevice()->devices()[0]->info().scratchLimitMax;;
+      break;
+    case hipExtLimitScratchCurrent:
+      *pValue = hip::getCurrentDevice()->devices()[0]->ScratchLimitCurrent();
+      break;
     default:
       LogPrintfError("UnsupportedLimit = %d is passed", limit);
       HIP_RETURN(hipErrorUnsupportedLimit);
@@ -579,6 +594,10 @@ hipError_t hipDeviceSetCacheConfig(hipFuncCache_t cacheConfig) {
     HIP_RETURN(hipErrorInvalidValue);
   }
 
+  if (!hip::tls.capture_streams_.empty() || !g_captureStreams.empty()) {
+    HIP_RETURN(hipErrorStreamCaptureUnsupported);
+  }
+
   // No way to set cache config yet.
 
   HIP_RETURN(hipSuccess);
@@ -601,6 +620,11 @@ hipError_t hipDeviceSetLimit(hipLimit_t limit, size_t value) {
         HIP_RETURN(hipErrorInvalidValue);
       }
       break;
+    case hipExtLimitScratchCurrent:
+      if (!hip::getCurrentDevice()->devices()[0]->UpdateScratchLimitCurrent(value)) {
+        HIP_RETURN(hipErrorInvalidValue);
+      }
+      break;
     default:
       LogPrintfError("UnsupportedLimit = %d is passed", limit);
       HIP_RETURN(hipErrorUnsupportedLimit);
@@ -614,6 +638,11 @@ hipError_t hipDeviceSetSharedMemConfig(hipSharedMemConfig config) {
       config != hipSharedMemBankSizeEightByte) {
     HIP_RETURN(hipErrorInvalidValue);
   }
+
+  if (!hip::tls.capture_streams_.empty() || !g_captureStreams.empty()) {
+    HIP_RETURN(hipErrorStreamCaptureUnsupported);
+  }
+
   // No way to set cache config yet.
 
   HIP_RETURN(hipSuccess);

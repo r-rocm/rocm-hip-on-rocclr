@@ -820,8 +820,8 @@ bool amd::Os::FindFileNameFromAddress(const void* image, std::string* fname_ptr,
       tokens >> permissions
              >> std::hex >> offset >> std::dec
              >> device
-             >> inode
-             >> uri_file_path;
+             >> inode;
+      std::getline(tokens >> std::ws, uri_file_path);
 
       if (inode == 0 || uri_file_path.empty()) {
         return ret_value;
@@ -957,6 +957,15 @@ void Os::CloseIpcMemory(const FileDesc desc, const void* ptr, size_t size) {
   }
   if (desc != 0) {
     close(desc);
+  }
+}
+
+void Os::PrintLibraryLocation() {
+  Dl_info dl_info;
+  if (dladdr(reinterpret_cast<void*>(Os::loadLibrary), &dl_info) && dl_info.dli_fname) {
+    ClPrint(amd::LOG_INFO, amd::LOG_INIT, "HIP Library Path: %s", dl_info.dli_fname);
+  } else {
+    ClPrint(amd::LOG_INFO, amd::LOG_INIT, "HIP Library Path: <unknown>");
   }
 }
 

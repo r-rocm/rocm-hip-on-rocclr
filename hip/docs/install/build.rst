@@ -1,3 +1,7 @@
+.. meta::
+   :description: This page gives instructions on how to build HIP from source.
+   :keywords: AMD, ROCm, HIP, build, build instructions, source
+
 *******************************************
 Build HIP from source
 *******************************************
@@ -234,4 +238,4 @@ Run HIP
 =================================================
 
 After installation and building HIP, you can compile your application and run.
-A simple example is `square sample <https://github.com/ROCm/hip-tests/tree/develop/samples/0_Intro/square>`_.
+Simple examples can be found in the `ROCm-examples repository <https://github.com/ROCm/rocm-examples>`_.

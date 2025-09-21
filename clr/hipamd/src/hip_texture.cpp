@@ -85,13 +85,13 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject,
 
   // Validate input params
   if (pTexObject == nullptr || pResDesc == nullptr || pTexDesc == nullptr) {
-    return hipErrorInvalidValue;
+    return hipErrorInvalidChannelDescriptor;
   }
 
   // pResViewDesc can only be specified if the type of resource is a HIP array or a HIP mipmapped array.
   if ((pResViewDesc != nullptr) &&
       ((pResDesc->resType != hipResourceTypeArray) && (pResDesc->resType != hipResourceTypeMipmappedArray))) {
-    return hipErrorInvalidValue;
+    return hipErrorUnknown;
   }
 
   // If hipResourceDesc::resType is set to hipResourceTypeArray,
@@ -124,7 +124,7 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject,
       return hipErrorNotSupported;
     }
     if (pResDesc->res.mipmap.mipmap == nullptr || pTexDesc->normalizedCoords == 0) {
-      return hipErrorInvalidValue;
+      return hipErrorInvalidChannelDescriptor;
     }
   }
 
@@ -135,7 +135,7 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject,
       ((pResDesc->res.linear.devPtr == nullptr) ||
        (!amd::isMultipleOf(pResDesc->res.linear.devPtr, info.imageBaseAddressAlignment_)) ||
        (pResDesc->res.linear.sizeInBytes >= info.imageMaxBufferSize_ * hip::getElementSize(pResDesc->res.linear.desc)))) {
-    return hipErrorInvalidValue;
+    return hipErrorInvalidChannelDescriptor;
   }
 
   // If hipResourceDesc::resType is set to hipResourceTypePitch2D,
@@ -147,8 +147,8 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject,
   if ((pResDesc->resType == hipResourceTypePitch2D) &&
       ((pResDesc->res.pitch2D.devPtr == nullptr) ||
        (!amd::isMultipleOf(pResDesc->res.pitch2D.devPtr, info.imageBaseAddressAlignment_)) ||
-       (pResDesc->res.pitch2D.width >= info.image2DMaxWidth_) ||
-       (pResDesc->res.pitch2D.height >= info.image2DMaxHeight_) ||
+       (pResDesc->res.pitch2D.width > info.image2DMaxWidth_) ||
+       (pResDesc->res.pitch2D.height > info.image2DMaxHeight_) ||
        (!amd::isMultipleOf(pResDesc->res.pitch2D.pitchInBytes, info.imagePitchAlignment_)))) {
     // TODO check pitch limits.
     return hipErrorInvalidValue;
@@ -173,17 +173,20 @@ hipError_t ihipCreateTextureObject(hipTextureObject_t* pTexObject,
   }
 
   // TODO ROCclr assumes all dimensions have the same addressing mode.
-  cl_addressing_mode addressMode = CL_ADDRESS_NONE;
+  cl_addressing_mode addressMode[3] = { CL_ADDRESS_NONE, CL_ADDRESS_NONE, CL_ADDRESS_NONE};
   // If hipTextureDesc::normalizedCoords is set to zero,
   // hipAddressModeWrap and hipAddressModeMirror won't be supported
   // and will be switched to hipAddressModeClamp.
-  if ((pTexDesc->normalizedCoords == 0) &&
-      ((pTexDesc->addressMode[0] == hipAddressModeWrap) || (pTexDesc->addressMode[0] == hipAddressModeMirror))) {
-    addressMode = hip::getCLAddressingMode(hipAddressModeClamp);
-  }
-  // hipTextureDesc::addressMode is ignored if hipResourceDesc::resType is hipResourceTypeLinear
-  else if (pResDesc->resType != hipResourceTypeLinear) {
-    addressMode = hip::getCLAddressingMode(pTexDesc->addressMode[0]);
+  for (int i = 0; i < 3; i++) {
+    if ((pTexDesc->normalizedCoords == 0) &&
+        ((pTexDesc->addressMode[i] == hipAddressModeWrap) ||
+            (pTexDesc->addressMode[i] == hipAddressModeMirror))) {
+      addressMode[i] = hip::getCLAddressingMode(hipAddressModeClamp);
+    }
+    // hipTextureDesc::addressMode is ignored if hipResourceDesc::resType is hipResourceTypeLinear
+    else if (pResDesc->resType != hipResourceTypeLinear) {
+      addressMode[i] = hip::getCLAddressingMode(pTexDesc->addressMode[i]);
+    }
   }
 
 #ifndef CL_FILTER_NONE
@@ -531,9 +534,15 @@ hipError_t ihipBindTexture(size_t* offset,
                            const void* devPtr,
                            const hipChannelFormatDesc* desc,
                            size_t size) {
-  if ((texref == nullptr) ||
-      (devPtr == nullptr) ||
-      (desc == nullptr)) {
+  if (texref == nullptr) {
+    return hipErrorUnknown;
+  }
+
+  if (devPtr == nullptr) {
+    return hipErrorNotFound;
+  }
+
+  if (desc == nullptr) {
     return hipErrorInvalidValue;
   }
 
@@ -613,6 +622,13 @@ hipError_t hipBindTexture2D(size_t* offset,
                             size_t height,
                             size_t pitch) {
   HIP_INIT_API(hipBindTexture2D, offset, texref, devPtr, desc, width, height, pitch);
+
+  if (texref == nullptr) {
+    HIP_RETURN(hipErrorUnknown);
+  }
+  if (devPtr == nullptr) {
+    HIP_RETURN(hipErrorNotFound);
+  }
 
   hipDeviceptr_t refDevPtr = nullptr;
   size_t refDevSize = 0;
@@ -782,7 +798,11 @@ hipError_t hipGetTextureAlignmentOffset(size_t* offset,
                                         const textureReference* texref) {
   HIP_INIT_API(hipGetTextureAlignmentOffset, offset, texref);
 
-  if ((offset == nullptr) || (texref == nullptr)) {
+  if (texref == nullptr) {
+    HIP_RETURN(hipErrorInvalidTexture);
+  }
+
+  if (offset == nullptr) {
     HIP_RETURN(hipErrorInvalidValue);
   }
   amd::Device* device = hip::getCurrentDevice()->devices()[0];
