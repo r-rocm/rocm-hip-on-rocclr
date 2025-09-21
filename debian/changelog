@@ -1,3 +1,9 @@
+rocm-hip-on-rocclr (7.0.1-1) trixie; urgency=medium
+
+  * Release 7.0.1-1
+
+ -- CHEN Xuan <chenxuan@iscas.ac.cn>  Sun, 21 Sep 2025 10:18:27 +0800
+
 rocm-hip-on-rocclr (6.4.3-1) trixie; urgency=medium
 
   * Release 6.4.3-1
