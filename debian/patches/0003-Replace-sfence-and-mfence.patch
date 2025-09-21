@@ -4,10 +4,11 @@ Subject: Replace sfence and mfence
 
 ---
  clr/hipamd/src/hip_graph_internal.cpp | 8 ++++++++
- 1 file changed, 8 insertions(+)
+ clr/rocclr/device/rocm/rocvirtual.cpp | 6 +++++-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
 
 diff --git a/clr/hipamd/src/hip_graph_internal.cpp b/clr/hipamd/src/hip_graph_internal.cpp
-index 20f60a4..d2639b3 100644
+index 20f60a4..a347abc 100644
 --- a/clr/hipamd/src/hip_graph_internal.cpp
 +++ b/clr/hipamd/src/hip_graph_internal.cpp
 @@ -806,9 +806,17 @@ void GraphKernelArgManager::ReadBackOrFlush() {
@@ -23,8 +24,25 @@ index 20f60a4..d2639b3 100644
 +#if !defined(__riscv)
        _mm_mfence();
 +#else
-+      asm volatile("fence w,w" ::: "memory");
++      asm volatile("fence rw,rw" ::: "memory");
 +#endif
        kSentinel = *reinterpret_cast<volatile unsigned char*>(dev_ptr - 1);
      }
    }
+diff --git a/clr/rocclr/device/rocm/rocvirtual.cpp b/clr/rocclr/device/rocm/rocvirtual.cpp
+index 8b363c2..1ba119e 100644
+--- a/clr/rocclr/device/rocm/rocvirtual.cpp
++++ b/clr/rocclr/device/rocm/rocvirtual.cpp
+@@ -3565,7 +3565,11 @@ bool VirtualGPU::submitKernelInternal(const amd::NDRangeContainer& sizes,
+           asm volatile("fence w,w" ::: "memory");
+ #endif
+         *(argBuffer + argSize - 1) = *(parameters + argSize - 1);
+-        _mm_mfence();
++#if !defined(__riscv)
++          _mm_mfence();
++#else
++          asm volatile("fence rw,rw" ::: "memory");
++#endif
+         auto kSentinel = *reinterpret_cast<volatile unsigned char*>(argBuffer + argSize - 1);
+       }
+     }
