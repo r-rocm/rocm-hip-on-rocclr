@@ -1,3 +1,14 @@
+From: CHEN Xuan <chenxuan@iscas.ac.cn>
+Date: Sun, 21 Sep 2025 10:37:24 +0800
+Subject: fix-riscv64-abi
+
+---
+ clr/rocclr/device/rocm/rocvirtual.cpp | 10 +++++++++-
+ clr/rocclr/include/top.hpp            |  2 ++
+ clr/rocclr/os/os.hpp                  |  3 +++
+ clr/rocclr/os/os_posix.cpp            |  2 ++
+ 4 files changed, 16 insertions(+), 1 deletion(-)
+
 diff --git a/clr/rocclr/device/rocm/rocvirtual.cpp b/clr/rocclr/device/rocm/rocvirtual.cpp
 index f4e5799..8b363c2 100644
 --- a/clr/rocclr/device/rocm/rocvirtual.cpp

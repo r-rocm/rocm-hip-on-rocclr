@@ -7,10 +7,10 @@ Subject: Replace sfence and mfence
  1 file changed, 8 insertions(+)
 
 diff --git a/clr/hipamd/src/hip_graph_internal.cpp b/clr/hipamd/src/hip_graph_internal.cpp
-index e88454e..df2edec 100644
+index 20f60a4..d2639b3 100644
 --- a/clr/hipamd/src/hip_graph_internal.cpp
 +++ b/clr/hipamd/src/hip_graph_internal.cpp
-@@ -797,9 +797,17 @@ void GraphKernelArgManager::ReadBackOrFlush() {
+@@ -806,9 +806,17 @@ void GraphKernelArgManager::ReadBackOrFlush() {
        address dev_ptr =
            kernarg_graph_.back().kernarg_pool_addr_ + kernarg_graph_.back().kernarg_pool_size_;
        auto kSentinel = *reinterpret_cast<volatile unsigned char*>(dev_ptr - 1);

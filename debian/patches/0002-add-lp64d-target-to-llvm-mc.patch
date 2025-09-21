@@ -40,10 +40,10 @@ index 6c92d43..f55e4b0 100755
    $LLVM_DIR/bin/clang -O3 --hip-path=$HIP_INC_DIR/.. -std=c++14 -nogpulib -nogpuinc -emit-llvm -c -o $tmp/tmp.bc --cuda-device-only -D__HIPCC_RTC__ --offload-arch=gfx906 -x hip-cpp-output $tmp/hiprtc &&
    rm -rf $tmp
 diff --git a/clr/hipamd/src/hiprtc/CMakeLists.txt b/clr/hipamd/src/hiprtc/CMakeLists.txt
-index 367d4fe..54a8ee7 100644
+index 675d587..89554a2 100644
 --- a/clr/hipamd/src/hiprtc/CMakeLists.txt
 +++ b/clr/hipamd/src/hiprtc/CMakeLists.txt
-@@ -184,7 +184,7 @@ add_custom_command(
+@@ -195,7 +195,7 @@ add_custom_command(
    DEPENDS ${clang} ${HIPRTC_GEN_HEADER})
  add_custom_command(
    OUTPUT ${HIPRTC_GEN_OBJ}
