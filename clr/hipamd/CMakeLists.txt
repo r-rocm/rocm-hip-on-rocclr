@@ -17,7 +17,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-cmake_minimum_required(VERSION 3.16.8)
 project(hip)
 
 include(GNUInstallDirs)
@@ -45,7 +44,6 @@ list(APPEND CMAKE_MODULE_PATH ${HIP_COMMON_DIR}/cmake)
 #############################
 option(__HIP_ENABLE_PCH "Enable/Disable pre-compiled hip headers" ON)
 option(HIP_OFFICIAL_BUILD "Enable/Disable for mainline/staging builds" ON)
-option(FILE_REORG_BACKWARD_COMPATIBILITY "Enable File Reorg with backward compatibility" OFF)
 option(BUILD_SHARED_LIBS "Build the shared library" ON)
 
 if(MSVC)
@@ -53,7 +51,8 @@ if(MSVC)
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /DEBUG:FULL")
 endif()
 
-set(HIPCC_BIN_DIR "" CACHE STRING "HIPCC and HIPCONFIG binary directories")
+# Set default HIPCC_BIN_DIR to /opt/rocm/bin
+set(HIPCC_BIN_DIR "/opt/rocm/bin" CACHE STRING "HIPCC and HIPCONFIG binary directories")
 
 if(__HIP_ENABLE_PCH)
   set(_pchStatus 1)
@@ -410,14 +409,13 @@ endif()
 install(FILES ${PROJECT_BINARY_DIR}/include/hip/hip_version.h
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/hip)
 
+set(HIP_INSTALLS_HIPCC OFF)
 if (NOT ${HIPCC_BIN_DIR} STREQUAL "")
   file(TO_CMAKE_PATH "${HIPCC_BIN_DIR}" HIPCC_BIN_DIR)
   if(EXISTS ${HIPCC_BIN_DIR})
+    set(HIP_INSTALLS_HIPCC ON)
     install(PROGRAMS ${HIPCC_BIN_DIR}/${HIPCC_EXECUTABLE} DESTINATION bin)
     install(PROGRAMS ${HIPCC_BIN_DIR}/${HIPCONFIG_EXECUTABLE} DESTINATION bin)
-    install(PROGRAMS ${HIPCC_BIN_DIR}/hipcc.pl DESTINATION bin)
-    install(PROGRAMS ${HIPCC_BIN_DIR}/hipconfig.pl DESTINATION bin)
-    install(PROGRAMS ${HIPCC_BIN_DIR}/hipvars.pm DESTINATION bin)
 
     if(NOT UNIX)
       install(PROGRAMS ${HIPCC_BIN_DIR}/hipcc.bat DESTINATION bin)
@@ -483,27 +481,4 @@ if(HIP_HIPCC_EXECUTABLE)
     if(CPPCHECK_EXE)
         add_dependencies(analyze cppcheck)
     endif()
-endif()
-
-#File reorg Backward compatibility function
-if(NOT WIN32)
-    if(FILE_REORG_BACKWARD_COMPATIBILITY)
-    # To enabe/disable #error in wrapper header files
-        if(NOT DEFINED ROCM_HEADER_WRAPPER_WERROR)
-            if(DEFINED ENV{ROCM_HEADER_WRAPPER_WERROR})
-                set(ROCM_HEADER_WRAPPER_WERROR "$ENV{ROCM_HEADER_WRAPPER_WERROR}"
-                    CACHE STRING "Header wrapper warnings as errors.")
-            else()
-                set(ROCM_HEADER_WRAPPER_WERROR "OFF" CACHE STRING "Header wrapper warnings as errors.")
-            endif()
-        endif()
-
-        if(ROCM_HEADER_WRAPPER_WERROR)
-            set(deprecated_error 1)
-        else()
-            set(deprecated_error 0)
-        endif()
-
-        include(hip-backward-compat.cmake)
-    endif() #FILE_REORG_BACKWARD_COMPATIBILITY
 endif()

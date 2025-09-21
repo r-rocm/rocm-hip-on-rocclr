@@ -5,6 +5,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
 import re
+import sys
+import subprocess
+from pathlib import Path
 from typing import Any, Dict, List
 
 from rocm_docs import ROCmDocs
@@ -38,7 +41,10 @@ external_projects_current_project = "hip"
 for sphinx_var in ROCmDocs.SPHINX_VARS:
     globals()[sphinx_var] = getattr(docs_core, sphinx_var)
 
-extensions += ["sphinxcontrib.doxylink"]
+# Add the _extensions directory to Python's search path
+sys.path.append(str(Path(__file__).parent / 'extension'))
+
+extensions += ["sphinxcontrib.doxylink", "custom_directive"]
 
 cpp_id_attributes = ["__global__", "__device__", "__host__", "__forceinline__", "static"]
 cpp_paren_attributes = ["__declspec"]
@@ -47,8 +53,13 @@ suppress_warnings = ["etoc.toctree"]
 
 numfig = False
 
-
 exclude_patterns = [
     "doxygen/mainpage.md",
-    "understand/glossary.md"
+    "understand/glossary.md",
+    'how-to/debugging_env.rst',
+    "data/env_variables_hip.rst"
 ]
+
+git_url = subprocess.check_output(['git', 'config', '--get', 'remote.origin.url']).strip().decode('ascii')
+if git_url.find("git:") != -1:
+    html_theme_options = {"repository_url": "https://github.com/ROCm/hip"}

@@ -226,20 +226,15 @@ static bool getProcName(uint32_t EFlags, std::string& proc_name, bool& xnackSupp
       sramEccSupported = false;
       proc_name = "gfx90c";
       break;
-    case EF_AMDGPU_MACH_AMDGCN_GFX940:
-      xnackSupported = true;
-      sramEccSupported = true;
-      proc_name = "gfx940";
-      break;
-    case EF_AMDGPU_MACH_AMDGCN_GFX941:
-      xnackSupported = true;
-      sramEccSupported = true;
-      proc_name = "gfx941";
-      break;
     case EF_AMDGPU_MACH_AMDGCN_GFX942:
       xnackSupported = true;
       sramEccSupported = true;
       proc_name = "gfx942";
+      break;
+    case EF_AMDGPU_MACH_AMDGCN_GFX950:
+      xnackSupported = true;
+      sramEccSupported = true;
+      proc_name = "gfx950";
       break;
     case EF_AMDGPU_MACH_AMDGCN_GFX1010:
       xnackSupported = true;
@@ -1109,6 +1104,8 @@ hipError_t DynCO::loadCodeObject(const char* fname, const void* image) {
   // No Lazy loading for DynCO
   IHIP_RETURN_ONFAIL(fb_info_->BuildProgram(ihipGetDevice()));
 
+  module_ = fb_info_->Module(device_id_);
+
   // Define Global variables
   IHIP_RETURN_ONFAIL(populateDynGlobalVars());
 
@@ -1155,22 +1152,18 @@ DynCO::~DynCO() {
 hipError_t DynCO::getDeviceVar(DeviceVar** dvar, std::string var_name) {
   amd::ScopedLock lock(dclock_);
 
-  CheckDeviceIdMatch();
-
   auto it = vars_.find(var_name);
   if (it == vars_.end()) {
     LogPrintfError("Cannot find the Var: %s ", var_name.c_str());
     return hipErrorNotFound;
   }
 
-  hipError_t err = it->second->getDeviceVar(dvar, device_id_, module());
+  hipError_t err = it->second->getDeviceVar(dvar, device_id_, module_);
   return err;
 }
 
 hipError_t DynCO::getDynFunc(hipFunction_t* hfunc, std::string func_name) {
   amd::ScopedLock lock(dclock_);
-
-  CheckDeviceIdMatch();
 
   if (hfunc == nullptr) {
     return hipErrorInvalidValue;
@@ -1183,7 +1176,7 @@ hipError_t DynCO::getDynFunc(hipFunction_t* hfunc, std::string func_name) {
   }
 
   /* See if this could be solved */
-  return it->second->getDynFunc(hfunc, module());
+  return it->second->getDynFunc(hfunc, module_);
 }
 
 bool DynCO::isValidDynFunc(const void* hfunc) {
@@ -1255,7 +1248,7 @@ hipError_t DynCO::populateDynGlobalVars() {
                                      ->getDeviceProgram(*hip::getCurrentDevice()->devices()[0]);
 
   if (!dev_program->getGlobalVarFromCodeObj(&var_names)) {
-    LogPrintfError("Could not get Global vars from Code Obj for Module: 0x%x", module());
+    LogPrintfError("Could not get Global vars from Code Obj for Module: 0x%x", module_);
     return hipErrorSharedObjectSymbolNotFound;
   }
 
@@ -1283,7 +1276,7 @@ hipError_t DynCO::populateDynGlobalFuncs() {
 
   // Get all the global func names from COMGR
   if (!dev_program->getGlobalFuncFromCodeObj(&func_names)) {
-    LogPrintfError("Could not get Global Funcs from Code Obj for Module: 0x%x", module());
+    LogPrintfError("Could not get Global Funcs from Code Obj for Module: 0x%x", module_);
     return hipErrorSharedObjectSymbolNotFound;
   }
 
@@ -1319,14 +1312,15 @@ hipError_t StatCO::digestFatBinary(const void* data, FatBinaryInfo*& programs) {
   }
 
   // Create a new fat binary object and extract the fat binary for all devices.
-  programs = new FatBinaryInfo(nullptr, data);
-  IHIP_RETURN_ONFAIL(programs->ExtractFatBinary(g_devices));
-
-  return hipSuccess;
+  FatBinaryInfo* fatBinaryInfo = new FatBinaryInfo(nullptr, data);
+  hipError_t err = fatBinaryInfo->ExtractFatBinary(g_devices);
+  programs = fatBinaryInfo;
+  return err;
 }
 
 FatBinaryInfo** StatCO::addFatBinary(const void* data, bool initialized, bool& success) {
   amd::ScopedLock lock(sclock_);
+  module_to_hostModule_.insert(std::make_pair(&modules_[data], data));
 
   if (initialized == false) {
     success = true;
@@ -1334,6 +1328,7 @@ FatBinaryInfo** StatCO::addFatBinary(const void* data, bool initialized, bool& s
   }
 
   hipError_t err = digestFatBinary(data, modules_[data]);
+
   success = (err == hipSuccess);
   return &modules_[data];
 }
@@ -1341,56 +1336,69 @@ FatBinaryInfo** StatCO::addFatBinary(const void* data, bool initialized, bool& s
 hipError_t StatCO::removeFatBinary(FatBinaryInfo** module) {
   amd::ScopedLock lock(sclock_);
 
-  auto vit = vars_.begin();
-  while (vit != vars_.end()) {
-    if (vit->second->moduleInfo() == module) {
-      delete vit->second;
-      vit = vars_.erase(vit);
-    } else {
-      ++vit;
+  auto hostVarsIter = module_to_hostVars_.find(module);
+  if (hostVarsIter != module_to_hostVars_.end()) {
+    for (auto& hostVar : hostVarsIter->second) {
+      auto varIter = vars_.find(hostVar);
+      if (varIter == vars_.end()) {
+        LogPrintfError(
+          "removeFatBinary: Unable to find module 0x%x hostVar 0x%x",
+          module, hostVar);
+      } else {
+        delete varIter->second;
+        vars_.erase(varIter);
+      }
     }
+    module_to_hostVars_.erase(hostVarsIter);
   }
 
-  auto it = managedVars_.begin();
-  while (it != managedVars_.end()) {
-    if ((*it)->moduleInfo() == module) {
+  auto managedVarsIter = managedVars_.find(module);
+  if (managedVarsIter != managedVars_.end()) {
+    for (auto& managedVar : managedVarsIter->second) {
       hipError_t err;
       for (auto dev : g_devices) {
         DeviceVar* dvar = nullptr;
-        IHIP_RETURN_ONFAIL((*it)->getDeviceVarPtr(&dvar, dev->deviceId())); 
+        IHIP_RETURN_ONFAIL(managedVar->getDeviceVarPtr(&dvar, dev->deviceId()));
         if (dvar != nullptr) {
           // free also deletes the device ptr
           err = ihipFree(dvar->device_ptr());
           assert(err == hipSuccess);
         }
       }
-      err = ihipFree(*(static_cast<void**>((*it)->getManagedVarPtr())));
+      err = ihipFree(*(static_cast<void**>(managedVar->getManagedVarPtr())));
       assert(err == hipSuccess);
-      delete *it;
-      it = managedVars_.erase(it);
-    } else {
-      ++it;
+      delete managedVar;
     }
+    managedVars_.erase(managedVarsIter);
   }
 
-  auto fit = functions_.begin();
-  while (fit != functions_.end()) {
-    if (fit->second->moduleInfo() == module) {
-      delete fit->second;
-      fit = functions_.erase(fit);
-    } else {
-      ++fit;
+  auto hostFuncsIter = module_to_hostFunctions_.find(module);
+  if (hostFuncsIter != module_to_hostFunctions_.end()) {
+    for (auto& hostFunc : hostFuncsIter->second) {
+      auto funcIter = functions_.find(hostFunc);
+      if (funcIter == functions_.end()) {
+        LogPrintfError("removeFatBinary: Unable to find module 0x%x hostFunc 0x%x",
+                       module, hostFunc);
+      } else {
+        delete funcIter->second;
+        functions_.erase(funcIter);
+      }
     }
+    module_to_hostFunctions_.erase(hostFuncsIter);
   }
 
-  auto mit = modules_.begin();
-  while (mit != modules_.end()) {
-    if (&mit->second == module) {
-      delete mit->second;
-      mit = modules_.erase(mit);
+  auto hostModuleIter = module_to_hostModule_.find(module);
+  if (hostModuleIter != module_to_hostModule_.end()) {
+    auto hostModule = hostModuleIter->second;
+    auto moduleIter = modules_.find(hostModule);
+    if (moduleIter != modules_.end()) {
+      delete moduleIter->second;
+      modules_.erase(moduleIter);
     } else {
-      ++mit;
+      LogPrintfError("removeFatBinary: Unable to find module 0x%x via hostModule 0x%x",
+                    module, hostModule);
     }
+    module_to_hostModule_.erase(hostModuleIter);
   }
 
   return hipSuccess;
@@ -1404,6 +1412,7 @@ hipError_t StatCO::registerStatFunction(const void* hostFunction, Function* func
     delete func;
   } else {
     functions_.insert(std::make_pair(hostFunction, func));
+    module_to_hostFunctions_[func->moduleInfo()].push_back(hostFunction);
   }
 
   return hipSuccess;
@@ -1420,11 +1429,19 @@ const char* StatCO::getStatFuncName(const void* hostFunction) {
 }
 
 hipError_t StatCO::getStatFunc(hipFunction_t* hfunc, const void* hostFunction, int deviceId) {
-  amd::ScopedLock lock(sclock_);
-
   const auto it = functions_.find(hostFunction);
   if (it == functions_.end()) {
     return hipErrorInvalidSymbol;
+  }
+
+  // Lazy load
+  FatBinaryInfo **module = it->second->moduleInfo();
+  if (*(module) == nullptr) {
+    amd::ScopedLock lock(sclock_);
+    if (*(module) == nullptr) {
+      hipError_t err = digestFatBinary(module_to_hostModule_[module], *module);
+      assert(err == hipSuccess);
+    }
   }
 
   return it->second->getStatFunc(hfunc, deviceId);
@@ -1439,6 +1456,13 @@ hipError_t StatCO::getStatFuncAttr(hipFuncAttributes* func_attr, const void* hos
     return hipErrorInvalidSymbol;
   }
 
+  // Lazy load
+  FatBinaryInfo **module = it->second->moduleInfo();
+  if (*(module) == nullptr) {
+    hipError_t err = digestFatBinary(module_to_hostModule_[module], *module);
+    assert(err == hipSuccess);
+  }
+
   return it->second->getStatFuncAttr(func_attr, deviceId);
 }
 
@@ -1451,6 +1475,7 @@ hipError_t StatCO::registerStatGlobalVar(const void* hostVar, Var* var) {
   }
 
   vars_.insert(std::make_pair(hostVar, var));
+  module_to_hostVars_[var->moduleInfo()].push_back(hostVar);
   return hipSuccess;
 }
 
@@ -1463,6 +1488,13 @@ hipError_t StatCO::getStatGlobalVar(const void* hostVar, int deviceId, hipDevice
     return hipErrorInvalidSymbol;
   }
 
+  // Lazy load
+  FatBinaryInfo **module = it->second->moduleInfo();
+  if (*(module) == nullptr) {
+    hipError_t err = digestFatBinary(module_to_hostModule_[module], *module);
+    assert(err == hipSuccess);
+  }
+
   DeviceVar* dvar = nullptr;
   IHIP_RETURN_ONFAIL(it->second->getStatDeviceVar(&dvar, deviceId));
 
@@ -1472,7 +1504,7 @@ hipError_t StatCO::getStatGlobalVar(const void* hostVar, int deviceId, hipDevice
 }
 
 hipError_t StatCO::registerStatManagedVar(Var* var) {
-  managedVars_.emplace_back(var);
+  managedVars_[var->moduleInfo()].push_back(var);
   return hipSuccess;
 }
 
@@ -1481,17 +1513,26 @@ hipError_t StatCO::initStatManagedVarDevicePtr(int deviceId) {
   hipError_t err = hipSuccess;
   if (managedVarsDevicePtrInitalized_.find(deviceId) == managedVarsDevicePtrInitalized_.end() ||
       !managedVarsDevicePtrInitalized_[deviceId]) {
-    for (auto var : managedVars_) {
-      DeviceVar* dvar = nullptr;
-      IHIP_RETURN_ONFAIL(var->getStatDeviceVar(&dvar, deviceId));
+    for (auto& vecIter : managedVars_) {
+      for (auto& var : vecIter.second) {
+        // Lazy load
+        FatBinaryInfo **module = var->moduleInfo();
+        if (*(module) == nullptr) {
+          hipError_t err = digestFatBinary(module_to_hostModule_[module], *module);
+          assert(err == hipSuccess);
+        }
 
-      hip::Stream* stream = g_devices.at(deviceId)->NullStream();
-      if (stream != nullptr) {
-        err = ihipMemcpy(reinterpret_cast<address>(dvar->device_ptr()), var->getManagedVarPtr(),
-                         dvar->size(), hipMemcpyHostToDevice, *stream);
-      } else {
-        ClPrint(amd::LOG_ERROR, amd::LOG_API, "Host Queue is NULL");
-        return hipErrorInvalidResourceHandle;
+        DeviceVar* dvar = nullptr;
+        IHIP_RETURN_ONFAIL(var->getStatDeviceVar(&dvar, deviceId));
+
+        hip::Stream* stream = g_devices.at(deviceId)->NullStream();
+        if (stream != nullptr) {
+          err = ihipMemcpy(reinterpret_cast<address>(dvar->device_ptr()), var->getManagedVarPtr(),
+                           dvar->size(), hipMemcpyHostToDevice, *stream);
+        } else {
+          ClPrint(amd::LOG_ERROR, amd::LOG_API, "Host Queue is NULL");
+          return hipErrorInvalidResourceHandle;
+        }
       }
     }
     managedVarsDevicePtrInitalized_[deviceId] = true;

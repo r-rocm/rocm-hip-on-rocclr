@@ -61,7 +61,7 @@
 #|   -I, --replace-string    replace all occurrences of the literal string
 #|                           REPLACE-STRING in ARGS with the input filename
 #|   -i, --replace           equivalent to -I{}
-#|   -d, --disassemble       disassemble extracted code objects; equivalent to
+#|   -d, --disassemble       diassemble extracted code objects; equivalent to
 #|                           : .s llvm-objdump -d - ;
 #|
 #| Example Usage:

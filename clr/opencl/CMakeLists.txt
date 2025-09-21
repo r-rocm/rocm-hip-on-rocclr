@@ -1,10 +1,3 @@
-cmake_minimum_required(VERSION 3.5.1)
-
-if (POLICY CMP0048)
-  cmake_policy(SET CMP0048 NEW)
-  set(PROJ_VERSION VERSION 1.5.0)
-endif()
-
 project(opencl)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -17,7 +10,6 @@ include(GNUInstallDirs)
 option(BUILD_TESTS "Enable building OpenCL tests" OFF)
 option(BUILD_ICD "Enable building OpenCL ICD Loader" OFF)
 option(EMU_ENV "Enable building for emulation environment" OFF)
-option(FILE_REORG_BACKWARD_COMPATIBILITY "Enable File Reorganization backward compatibility" OFF)
 option(ENABLE_ADDRESS_SANITIZER "Option to enable ASAN build" OFF)
 
 # Add flags to generate PDB files with full symbolic information
@@ -151,25 +143,4 @@ if(BUILD_ICD)
 endif()
 
 add_subdirectory(packaging)
-
-#File reorg Backward compatibility function
-if(FILE_REORG_BACKWARD_COMPATIBILITY)
-# To enable/disable #error in wrapper header files
-    if(NOT DEFINED ROCM_HEADER_WRAPPER_WERROR)
-      if(DEFINED ENV{ROCM_HEADER_WRAPPER_WERROR})
-          set(ROCM_HEADER_WRAPPER_WERROR "$ENV{ROCM_HEADER_WRAPPER_WERROR}"
-                  CACHE STRING "Header wrapper warnings as errors.")
-      else()
-          set(ROCM_HEADER_WRAPPER_WERROR "OFF" CACHE STRING "Header wrapper warnings as errors.")
-      endif()
-  endif()
-  if(ROCM_HEADER_WRAPPER_WERROR)
-      set(deprecated_error 1)
-  else()
-      set(deprecated_error 0)
-  endif()
-
-  include(opencl-backward-compat.cmake)
-endif()
-
 endif()

@@ -22,11 +22,9 @@
 #define THREAD_HPP_
 
 #include "top.hpp"
-#include "thread/semaphore.hpp"
 #include "os/os.hpp"
 
 #include <string>
-#include <memory>
 
 #if defined(_WIN32)
 #define USE_DECLSPEC_THREAD 1
@@ -62,12 +60,6 @@ class Thread : public HeapObject {
   //! The argument passed to run()
   void* data_;
 
-  //! \cond ignore
-  Semaphore* created_;  //!< To notify the parent thread.
-  Semaphore* lock_;     //!< For mutex support (during contention).
-  Semaphore* suspend_;  //!< For wait/suspend support.
-  //! \endcond
-
   Monitor* selfSuspendLock_;  //!< For self suspend/resume.
 
  protected:
@@ -96,7 +88,7 @@ class Thread : public HeapObject {
   void setState(ThreadState state) { state_ = state; }
 
   //! Set the thread-local _thread variable (used by current()).
-  void setCurrent(bool passOwnership = false);
+  void setCurrent();
 
   //! Register the given memory region as a valid stack.
   void registerStack(address base, address top);
@@ -149,11 +141,6 @@ class Thread : public HeapObject {
   //! Return this thread's stack bottom.
   address stackBottom() const { return stackBase() - stackSize(); }
 
-  //! Return this thread's contend semaphore.
-  Semaphore& lockSemaphore() const { return *lock_; }
-  //! Return this thread's resume semaphore.
-  Semaphore& suspendSemaphore() const { return *suspend_; }
-
   //! Set this thread's affinity to the given cpu.
   void setAffinity(uint cpu_id) const { Os::setThreadAffinity(handle_, cpu_id); }
 
@@ -161,22 +148,6 @@ class Thread : public HeapObject {
   void setAffinity(const Os::ThreadAffinityMask& mask) const {
     Os::setThreadAffinity(handle_, mask);
   }
-
-  //! Yield to threads of the same priority of higher
-  static void yield() { Os::yield(); }
-};
-
-class HostThread : public Thread {
- private:
-  //! A HostThread does not have a run function
-  virtual void run(void* data) { ShouldNotCallThis(); }
-
- public:
-  //! Construct a new HostThread
-  HostThread(bool passOwnership = false);
-
-  //! Return true is this is the host thread.
-  bool isHostThread() const { return true; };
 };
 
 /*! @}
@@ -187,10 +158,9 @@ namespace details {
 
 #if defined(__linux__)
 
-extern thread_local std::unique_ptr<Thread> thread_;
-extern thread_local Thread* mthread_;
+extern __thread Thread* thread_ __attribute__((tls_model("initial-exec")));
 
-static inline Thread* currentThread() { return mthread_ ? mthread_ : thread_.get(); }
+static inline Thread* currentThread() { return thread_; }
 
 #elif defined(_WIN32)
 

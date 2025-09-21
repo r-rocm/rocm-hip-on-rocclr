@@ -430,13 +430,15 @@ enum hip_api_id_t {
   HIP_API_ID_hipGraphBatchMemOpNodeGetParams = 410,
   HIP_API_ID_hipGraphBatchMemOpNodeSetParams = 411,
   HIP_API_ID_hipGraphExecBatchMemOpNodeSetParams = 412,
-  HIP_API_ID_hipLinkAddData = 413,
-  HIP_API_ID_hipLinkAddFile = 414,
-  HIP_API_ID_hipLinkComplete = 415,
-  HIP_API_ID_hipLinkCreate = 416,
-  HIP_API_ID_hipLinkDestroy = 417,
-  HIP_API_ID_hipEventRecordWithFlags = 418,
-  HIP_API_ID_LAST = 418,
+  HIP_API_ID_hipEventRecordWithFlags = 413,
+  HIP_API_ID_hipLinkAddData = 414,
+  HIP_API_ID_hipLinkAddFile = 415,
+  HIP_API_ID_hipLinkComplete = 416,
+  HIP_API_ID_hipLinkCreate = 417,
+  HIP_API_ID_hipLinkDestroy = 418,
+  HIP_API_ID_hipLaunchKernelExC = 419,
+  HIP_API_ID_hipDrvLaunchKernelEx = 420,
+  HIP_API_ID_LAST = 420,
 
   HIP_API_ID_hipChooseDevice = HIP_API_ID_CONCAT(HIP_API_ID_,hipChooseDevice),
   HIP_API_ID_hipGetDeviceProperties = HIP_API_ID_CONCAT(HIP_API_ID_,hipGetDeviceProperties),
@@ -454,6 +456,7 @@ enum hip_api_id_t {
   HIP_API_ID_hipGetTextureObjectResourceViewDesc = HIP_API_ID_NONE,
   HIP_API_ID_hipGetTextureObjectTextureDesc = HIP_API_ID_NONE,
   HIP_API_ID_hipGetTextureReference = HIP_API_ID_NONE,
+  HIP_API_ID_hipMemGetHandleForAddressRange = HIP_API_ID_NONE,
   HIP_API_ID_hipTexObjectCreate = HIP_API_ID_NONE,
   HIP_API_ID_hipTexObjectDestroy = HIP_API_ID_NONE,
   HIP_API_ID_hipTexObjectGetResourceDesc = HIP_API_ID_NONE,
@@ -545,6 +548,7 @@ static inline const char* hip_api_name(const uint32_t id) {
     case HIP_API_ID_hipDrvGraphExecMemsetNodeSetParams: return "hipDrvGraphExecMemsetNodeSetParams";
     case HIP_API_ID_hipDrvGraphMemcpyNodeGetParams: return "hipDrvGraphMemcpyNodeGetParams";
     case HIP_API_ID_hipDrvGraphMemcpyNodeSetParams: return "hipDrvGraphMemcpyNodeSetParams";
+    case HIP_API_ID_hipDrvLaunchKernelEx: return "hipDrvLaunchKernelEx";
     case HIP_API_ID_hipDrvMemcpy2DUnaligned: return "hipDrvMemcpy2DUnaligned";
     case HIP_API_ID_hipDrvMemcpy3D: return "hipDrvMemcpy3D";
     case HIP_API_ID_hipDrvMemcpy3DAsync: return "hipDrvMemcpy3DAsync";
@@ -704,6 +708,7 @@ static inline const char* hip_api_name(const uint32_t id) {
     case HIP_API_ID_hipLaunchCooperativeKernelMultiDevice: return "hipLaunchCooperativeKernelMultiDevice";
     case HIP_API_ID_hipLaunchHostFunc: return "hipLaunchHostFunc";
     case HIP_API_ID_hipLaunchKernel: return "hipLaunchKernel";
+    case HIP_API_ID_hipLaunchKernelExC: return "hipLaunchKernelExC";
     case HIP_API_ID_hipLinkAddData: return "hipLinkAddData";
     case HIP_API_ID_hipLinkAddFile: return "hipLinkAddFile";
     case HIP_API_ID_hipLinkComplete: return "hipLinkComplete";
@@ -958,6 +963,7 @@ static inline uint32_t hipApiIdByName(const char* name) {
   if (strcmp("hipDrvGraphExecMemsetNodeSetParams", name) == 0) return HIP_API_ID_hipDrvGraphExecMemsetNodeSetParams;
   if (strcmp("hipDrvGraphMemcpyNodeGetParams", name) == 0) return HIP_API_ID_hipDrvGraphMemcpyNodeGetParams;
   if (strcmp("hipDrvGraphMemcpyNodeSetParams", name) == 0) return HIP_API_ID_hipDrvGraphMemcpyNodeSetParams;
+  if (strcmp("hipDrvLaunchKernelEx", name) == 0) return HIP_API_ID_hipDrvLaunchKernelEx;
   if (strcmp("hipDrvMemcpy2DUnaligned", name) == 0) return HIP_API_ID_hipDrvMemcpy2DUnaligned;
   if (strcmp("hipDrvMemcpy3D", name) == 0) return HIP_API_ID_hipDrvMemcpy3D;
   if (strcmp("hipDrvMemcpy3DAsync", name) == 0) return HIP_API_ID_hipDrvMemcpy3DAsync;
@@ -1117,6 +1123,7 @@ static inline uint32_t hipApiIdByName(const char* name) {
   if (strcmp("hipLaunchCooperativeKernelMultiDevice", name) == 0) return HIP_API_ID_hipLaunchCooperativeKernelMultiDevice;
   if (strcmp("hipLaunchHostFunc", name) == 0) return HIP_API_ID_hipLaunchHostFunc;
   if (strcmp("hipLaunchKernel", name) == 0) return HIP_API_ID_hipLaunchKernel;
+  if (strcmp("hipLaunchKernelExC", name) == 0) return HIP_API_ID_hipLaunchKernelExC;
   if (strcmp("hipLinkAddData", name) == 0) return HIP_API_ID_hipLinkAddData;
   if (strcmp("hipLinkAddFile", name) == 0) return HIP_API_ID_hipLinkAddFile;
   if (strcmp("hipLinkComplete", name) == 0) return HIP_API_ID_hipLinkComplete;
@@ -1393,8 +1400,8 @@ typedef struct hip_api_data_s {
     } hipCtxEnablePeerAccess;
     struct {
       hipCtx_t ctx;
-      int* apiVersion;
-      int apiVersion__val;
+      unsigned int* apiVersion;
+      unsigned int apiVersion__val;
     } hipCtxGetApiVersion;
     struct {
       hipFuncCache_t* cacheConfig;
@@ -1616,8 +1623,8 @@ typedef struct hip_api_data_s {
       const hipGraphNode_t* dependencies;
       hipGraphNode_t dependencies__val;
       size_t numDependencies;
-      const HIP_MEMSET_NODE_PARAMS* memsetParams;
-      HIP_MEMSET_NODE_PARAMS memsetParams__val;
+      const hipMemsetParams* memsetParams;
+      hipMemsetParams memsetParams__val;
       hipCtx_t ctx;
     } hipDrvGraphAddMemsetNode;
     struct {
@@ -1630,8 +1637,8 @@ typedef struct hip_api_data_s {
     struct {
       hipGraphExec_t hGraphExec;
       hipGraphNode_t hNode;
-      const HIP_MEMSET_NODE_PARAMS* memsetParams;
-      HIP_MEMSET_NODE_PARAMS memsetParams__val;
+      const hipMemsetParams* memsetParams;
+      hipMemsetParams memsetParams__val;
       hipCtx_t ctx;
     } hipDrvGraphExecMemsetNodeSetParams;
     struct {
@@ -1644,6 +1651,15 @@ typedef struct hip_api_data_s {
       const HIP_MEMCPY3D* nodeParams;
       HIP_MEMCPY3D nodeParams__val;
     } hipDrvGraphMemcpyNodeSetParams;
+    struct {
+      const HIP_LAUNCH_CONFIG* config;
+      HIP_LAUNCH_CONFIG config__val;
+      hipFunction_t f;
+      void** params;
+      void* params__val;
+      void** extra;
+      void* extra__val;
+    } hipDrvLaunchKernelEx;
     struct {
       const hip_Memcpy2D* pCopy;
       hip_Memcpy2D pCopy__val;
@@ -2608,6 +2624,13 @@ typedef struct hip_api_data_s {
       hipStream_t stream;
     } hipLaunchKernel;
     struct {
+      const hipLaunchConfig_t* config;
+      hipLaunchConfig_t config__val;
+      const void* fPtr;
+      void** args;
+      void* args__val;
+    } hipLaunchKernelExC;
+    struct {
       hipLinkState_t state;
       hipJitInputType type;
       void* data;
@@ -3110,12 +3133,12 @@ typedef struct hip_api_data_s {
     } hipMemcpyHtoAAsync;
     struct {
       hipDeviceptr_t dst;
-      void* src;
+      const void* src;
       size_t sizeBytes;
     } hipMemcpyHtoD;
     struct {
       hipDeviceptr_t dst;
-      void* src;
+      const void* src;
       size_t sizeBytes;
       hipStream_t stream;
     } hipMemcpyHtoDAsync;
@@ -3820,10 +3843,10 @@ typedef struct hip_api_data_s {
   cb_data.args.hipCtxEnablePeerAccess.peerCtx = (hipCtx_t)peerCtx; \
   cb_data.args.hipCtxEnablePeerAccess.flags = (unsigned int)flags; \
 };
-// hipCtxGetApiVersion[('hipCtx_t', 'ctx'), ('int*', 'apiVersion')]
+// hipCtxGetApiVersion[('hipCtx_t', 'ctx'), ('unsigned int*', 'apiVersion')]
 #define INIT_hipCtxGetApiVersion_CB_ARGS_DATA(cb_data) { \
   cb_data.args.hipCtxGetApiVersion.ctx = (hipCtx_t)ctx; \
-  cb_data.args.hipCtxGetApiVersion.apiVersion = (int*)apiVersion; \
+  cb_data.args.hipCtxGetApiVersion.apiVersion = (unsigned int*)apiVersion; \
 };
 // hipCtxGetCacheConfig[('hipFuncCache_t*', 'cacheConfig')]
 #define INIT_hipCtxGetCacheConfig_CB_ARGS_DATA(cb_data) { \
@@ -4059,13 +4082,13 @@ typedef struct hip_api_data_s {
   cb_data.args.hipDrvGraphAddMemcpyNode.copyParams = (const HIP_MEMCPY3D*)copyParams; \
   cb_data.args.hipDrvGraphAddMemcpyNode.ctx = (hipCtx_t)ctx; \
 };
-// hipDrvGraphAddMemsetNode[('hipGraphNode_t*', 'phGraphNode'), ('hipGraph_t', 'hGraph'), ('const hipGraphNode_t*', 'dependencies'), ('size_t', 'numDependencies'), ('const HIP_MEMSET_NODE_PARAMS*', 'memsetParams'), ('hipCtx_t', 'ctx')]
+// hipDrvGraphAddMemsetNode[('hipGraphNode_t*', 'phGraphNode'), ('hipGraph_t', 'hGraph'), ('const hipGraphNode_t*', 'dependencies'), ('size_t', 'numDependencies'), ('const hipMemsetParams*', 'memsetParams'), ('hipCtx_t', 'ctx')]
 #define INIT_hipDrvGraphAddMemsetNode_CB_ARGS_DATA(cb_data) { \
   cb_data.args.hipDrvGraphAddMemsetNode.phGraphNode = (hipGraphNode_t*)phGraphNode; \
   cb_data.args.hipDrvGraphAddMemsetNode.hGraph = (hipGraph_t)hGraph; \
   cb_data.args.hipDrvGraphAddMemsetNode.dependencies = (const hipGraphNode_t*)dependencies; \
   cb_data.args.hipDrvGraphAddMemsetNode.numDependencies = (size_t)numDependencies; \
-  cb_data.args.hipDrvGraphAddMemsetNode.memsetParams = (const HIP_MEMSET_NODE_PARAMS*)memsetParams; \
+  cb_data.args.hipDrvGraphAddMemsetNode.memsetParams = (const hipMemsetParams*)memsetParams; \
   cb_data.args.hipDrvGraphAddMemsetNode.ctx = (hipCtx_t)ctx; \
 };
 // hipDrvGraphExecMemcpyNodeSetParams[('hipGraphExec_t', 'hGraphExec'), ('hipGraphNode_t', 'hNode'), ('const HIP_MEMCPY3D*', 'copyParams'), ('hipCtx_t', 'ctx')]
@@ -4075,11 +4098,11 @@ typedef struct hip_api_data_s {
   cb_data.args.hipDrvGraphExecMemcpyNodeSetParams.copyParams = (const HIP_MEMCPY3D*)copyParams; \
   cb_data.args.hipDrvGraphExecMemcpyNodeSetParams.ctx = (hipCtx_t)ctx; \
 };
-// hipDrvGraphExecMemsetNodeSetParams[('hipGraphExec_t', 'hGraphExec'), ('hipGraphNode_t', 'hNode'), ('const HIP_MEMSET_NODE_PARAMS*', 'memsetParams'), ('hipCtx_t', 'ctx')]
+// hipDrvGraphExecMemsetNodeSetParams[('hipGraphExec_t', 'hGraphExec'), ('hipGraphNode_t', 'hNode'), ('const hipMemsetParams*', 'memsetParams'), ('hipCtx_t', 'ctx')]
 #define INIT_hipDrvGraphExecMemsetNodeSetParams_CB_ARGS_DATA(cb_data) { \
   cb_data.args.hipDrvGraphExecMemsetNodeSetParams.hGraphExec = (hipGraphExec_t)hGraphExec; \
   cb_data.args.hipDrvGraphExecMemsetNodeSetParams.hNode = (hipGraphNode_t)hNode; \
-  cb_data.args.hipDrvGraphExecMemsetNodeSetParams.memsetParams = (const HIP_MEMSET_NODE_PARAMS*)memsetParams; \
+  cb_data.args.hipDrvGraphExecMemsetNodeSetParams.memsetParams = (const hipMemsetParams*)memsetParams; \
   cb_data.args.hipDrvGraphExecMemsetNodeSetParams.ctx = (hipCtx_t)ctx; \
 };
 // hipDrvGraphMemcpyNodeGetParams[('hipGraphNode_t', 'hNode'), ('HIP_MEMCPY3D*', 'nodeParams')]
@@ -4091,6 +4114,13 @@ typedef struct hip_api_data_s {
 #define INIT_hipDrvGraphMemcpyNodeSetParams_CB_ARGS_DATA(cb_data) { \
   cb_data.args.hipDrvGraphMemcpyNodeSetParams.hNode = (hipGraphNode_t)hNode; \
   cb_data.args.hipDrvGraphMemcpyNodeSetParams.nodeParams = (const HIP_MEMCPY3D*)nodeParams; \
+};
+// hipDrvLaunchKernelEx[('const HIP_LAUNCH_CONFIG*', 'config'), ('hipFunction_t', 'f'), ('void**', 'params'), ('void**', 'extra')]
+#define INIT_hipDrvLaunchKernelEx_CB_ARGS_DATA(cb_data) { \
+  cb_data.args.hipDrvLaunchKernelEx.config = (const HIP_LAUNCH_CONFIG*)config; \
+  cb_data.args.hipDrvLaunchKernelEx.f = (hipFunction_t)f; \
+  cb_data.args.hipDrvLaunchKernelEx.params = (void**)kernelParams; \
+  cb_data.args.hipDrvLaunchKernelEx.extra = (void**)extra; \
 };
 // hipDrvMemcpy2DUnaligned[('const hip_Memcpy2D*', 'pCopy')]
 #define INIT_hipDrvMemcpy2DUnaligned_CB_ARGS_DATA(cb_data) { \
@@ -5048,6 +5078,12 @@ typedef struct hip_api_data_s {
   cb_data.args.hipLaunchKernel.args = (void**)args; \
   cb_data.args.hipLaunchKernel.sharedMemBytes = (size_t)sharedMemBytes; \
   cb_data.args.hipLaunchKernel.stream = (hipStream_t)stream; \
+};
+// hipLaunchKernelExC[('const hipLaunchConfig_t*', 'config'), ('const void*', 'fPtr'), ('void**', 'args')]
+#define INIT_hipLaunchKernelExC_CB_ARGS_DATA(cb_data) { \
+  cb_data.args.hipLaunchKernelExC.config = (const hipLaunchConfig_t*)config; \
+  cb_data.args.hipLaunchKernelExC.fPtr = (const void*)fPtr; \
+  cb_data.args.hipLaunchKernelExC.args = (void**)args; \
 };
 // hipLinkAddData[('hipLinkState_t', 'state'), ('hipJitInputType', 'type'), ('void*', 'data'), ('size_t', 'size'), ('const char*', 'name'), ('unsigned int', 'numOptions'), ('hipJitOption*', 'options'), ('void**', 'optionValues')]
 #define INIT_hipLinkAddData_CB_ARGS_DATA(cb_data) { \
@@ -6229,6 +6265,8 @@ typedef struct hip_api_data_s {
 #define INIT_hipGetTextureObjectTextureDesc_CB_ARGS_DATA(cb_data) {};
 // hipGetTextureReference()
 #define INIT_hipGetTextureReference_CB_ARGS_DATA(cb_data) {};
+// hipMemGetHandleForAddressRange()
+#define INIT_hipMemGetHandleForAddressRange_CB_ARGS_DATA(cb_data) {};
 // hipTexObjectCreate()
 #define INIT_hipTexObjectCreate_CB_ARGS_DATA(cb_data) {};
 // hipTexObjectDestroy()
@@ -6513,7 +6551,7 @@ static inline void hipApiArgsInit(hip_api_id_t id, hip_api_data_t* data) {
       if (data->args.hipDrvGraphAddMemcpyNode.dependencies) data->args.hipDrvGraphAddMemcpyNode.dependencies__val = *(data->args.hipDrvGraphAddMemcpyNode.dependencies);
       if (data->args.hipDrvGraphAddMemcpyNode.copyParams) data->args.hipDrvGraphAddMemcpyNode.copyParams__val = *(data->args.hipDrvGraphAddMemcpyNode.copyParams);
       break;
-// hipDrvGraphAddMemsetNode[('hipGraphNode_t*', 'phGraphNode'), ('hipGraph_t', 'hGraph'), ('const hipGraphNode_t*', 'dependencies'), ('size_t', 'numDependencies'), ('const HIP_MEMSET_NODE_PARAMS*', 'memsetParams'), ('hipCtx_t', 'ctx')]
+// hipDrvGraphAddMemsetNode[('hipGraphNode_t*', 'phGraphNode'), ('hipGraph_t', 'hGraph'), ('const hipGraphNode_t*', 'dependencies'), ('size_t', 'numDependencies'), ('const hipMemsetParams*', 'memsetParams'), ('hipCtx_t', 'ctx')]
     case HIP_API_ID_hipDrvGraphAddMemsetNode:
       if (data->args.hipDrvGraphAddMemsetNode.phGraphNode) data->args.hipDrvGraphAddMemsetNode.phGraphNode__val = *(data->args.hipDrvGraphAddMemsetNode.phGraphNode);
       if (data->args.hipDrvGraphAddMemsetNode.dependencies) data->args.hipDrvGraphAddMemsetNode.dependencies__val = *(data->args.hipDrvGraphAddMemsetNode.dependencies);
@@ -6523,7 +6561,7 @@ static inline void hipApiArgsInit(hip_api_id_t id, hip_api_data_t* data) {
     case HIP_API_ID_hipDrvGraphExecMemcpyNodeSetParams:
       if (data->args.hipDrvGraphExecMemcpyNodeSetParams.copyParams) data->args.hipDrvGraphExecMemcpyNodeSetParams.copyParams__val = *(data->args.hipDrvGraphExecMemcpyNodeSetParams.copyParams);
       break;
-// hipDrvGraphExecMemsetNodeSetParams[('hipGraphExec_t', 'hGraphExec'), ('hipGraphNode_t', 'hNode'), ('const HIP_MEMSET_NODE_PARAMS*', 'memsetParams'), ('hipCtx_t', 'ctx')]
+// hipDrvGraphExecMemsetNodeSetParams[('hipGraphExec_t', 'hGraphExec'), ('hipGraphNode_t', 'hNode'), ('const hipMemsetParams*', 'memsetParams'), ('hipCtx_t', 'ctx')]
     case HIP_API_ID_hipDrvGraphExecMemsetNodeSetParams:
       if (data->args.hipDrvGraphExecMemsetNodeSetParams.memsetParams) data->args.hipDrvGraphExecMemsetNodeSetParams.memsetParams__val = *(data->args.hipDrvGraphExecMemsetNodeSetParams.memsetParams);
       break;
@@ -6534,6 +6572,12 @@ static inline void hipApiArgsInit(hip_api_id_t id, hip_api_data_t* data) {
 // hipDrvGraphMemcpyNodeSetParams[('hipGraphNode_t', 'hNode'), ('const HIP_MEMCPY3D*', 'nodeParams')]
     case HIP_API_ID_hipDrvGraphMemcpyNodeSetParams:
       if (data->args.hipDrvGraphMemcpyNodeSetParams.nodeParams) data->args.hipDrvGraphMemcpyNodeSetParams.nodeParams__val = *(data->args.hipDrvGraphMemcpyNodeSetParams.nodeParams);
+      break;
+// hipDrvLaunchKernelEx[('const HIP_LAUNCH_CONFIG*', 'config'), ('hipFunction_t', 'f'), ('void**', 'params'), ('void**', 'extra')]
+    case HIP_API_ID_hipDrvLaunchKernelEx:
+      if (data->args.hipDrvLaunchKernelEx.config) data->args.hipDrvLaunchKernelEx.config__val = *(data->args.hipDrvLaunchKernelEx.config);
+      if (data->args.hipDrvLaunchKernelEx.params) data->args.hipDrvLaunchKernelEx.params__val = *(data->args.hipDrvLaunchKernelEx.params);
+      if (data->args.hipDrvLaunchKernelEx.extra) data->args.hipDrvLaunchKernelEx.extra__val = *(data->args.hipDrvLaunchKernelEx.extra);
       break;
 // hipDrvMemcpy2DUnaligned[('const hip_Memcpy2D*', 'pCopy')]
     case HIP_API_ID_hipDrvMemcpy2DUnaligned:
@@ -7176,6 +7220,11 @@ static inline void hipApiArgsInit(hip_api_id_t id, hip_api_data_t* data) {
 // hipLaunchKernel[('const void*', 'function_address'), ('dim3', 'numBlocks'), ('dim3', 'dimBlocks'), ('void**', 'args'), ('size_t', 'sharedMemBytes'), ('hipStream_t', 'stream')]
     case HIP_API_ID_hipLaunchKernel:
       if (data->args.hipLaunchKernel.args) data->args.hipLaunchKernel.args__val = *(data->args.hipLaunchKernel.args);
+      break;
+// hipLaunchKernelExC[('const hipLaunchConfig_t*', 'config'), ('const void*', 'fPtr'), ('void**', 'args')]
+    case HIP_API_ID_hipLaunchKernelExC:
+      if (data->args.hipLaunchKernelExC.config) data->args.hipLaunchKernelExC.config__val = *(data->args.hipLaunchKernelExC.config);
+      if (data->args.hipLaunchKernelExC.args) data->args.hipLaunchKernelExC.args__val = *(data->args.hipLaunchKernelExC.args);
       break;
 // hipLinkAddData[('hipLinkState_t', 'state'), ('hipJitInputType', 'type'), ('void*', 'data'), ('size_t', 'size'), ('const char*', 'name'), ('unsigned int', 'numOptions'), ('hipJitOption*', 'options'), ('void**', 'optionValues')]
     case HIP_API_ID_hipLinkAddData:
@@ -8357,6 +8406,17 @@ static inline const char* hipApiString(hip_api_id_t id, const hip_api_data_t* da
       oss << "hNode="; roctracer::hip_support::detail::operator<<(oss, data->args.hipDrvGraphMemcpyNodeSetParams.hNode);
       if (data->args.hipDrvGraphMemcpyNodeSetParams.nodeParams == NULL) oss << ", nodeParams=NULL";
       else { oss << ", nodeParams="; roctracer::hip_support::detail::operator<<(oss, data->args.hipDrvGraphMemcpyNodeSetParams.nodeParams__val); }
+      oss << ")";
+    break;
+    case HIP_API_ID_hipDrvLaunchKernelEx:
+      oss << "hipDrvLaunchKernelEx(";
+      if (data->args.hipDrvLaunchKernelEx.config == NULL) oss << "config=NULL";
+      else { oss << "config="; roctracer::hip_support::detail::operator<<(oss, data->args.hipDrvLaunchKernelEx.config__val); }
+      oss << ", f="; roctracer::hip_support::detail::operator<<(oss, data->args.hipDrvLaunchKernelEx.f);
+      if (data->args.hipDrvLaunchKernelEx.params == NULL) oss << ", params=NULL";
+      else { oss << ", params="; roctracer::hip_support::detail::operator<<(oss, data->args.hipDrvLaunchKernelEx.params__val); }
+      if (data->args.hipDrvLaunchKernelEx.extra == NULL) oss << ", extra=NULL";
+      else { oss << ", extra="; roctracer::hip_support::detail::operator<<(oss, data->args.hipDrvLaunchKernelEx.extra__val); }
       oss << ")";
     break;
     case HIP_API_ID_hipDrvMemcpy2DUnaligned:
@@ -9644,6 +9704,15 @@ static inline const char* hipApiString(hip_api_id_t id, const hip_api_data_t* da
       else { oss << ", args="; roctracer::hip_support::detail::operator<<(oss, data->args.hipLaunchKernel.args__val); }
       oss << ", sharedMemBytes="; roctracer::hip_support::detail::operator<<(oss, data->args.hipLaunchKernel.sharedMemBytes);
       oss << ", stream="; roctracer::hip_support::detail::operator<<(oss, data->args.hipLaunchKernel.stream);
+      oss << ")";
+    break;
+    case HIP_API_ID_hipLaunchKernelExC:
+      oss << "hipLaunchKernelExC(";
+      if (data->args.hipLaunchKernelExC.config == NULL) oss << "config=NULL";
+      else { oss << "config="; roctracer::hip_support::detail::operator<<(oss, data->args.hipLaunchKernelExC.config__val); }
+      oss << ", fPtr="; roctracer::hip_support::detail::operator<<(oss, data->args.hipLaunchKernelExC.fPtr);
+      if (data->args.hipLaunchKernelExC.args == NULL) oss << ", args=NULL";
+      else { oss << ", args="; roctracer::hip_support::detail::operator<<(oss, data->args.hipLaunchKernelExC.args__val); }
       oss << ")";
     break;
     case HIP_API_ID_hipLinkAddData:

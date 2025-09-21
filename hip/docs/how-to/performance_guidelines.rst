@@ -3,6 +3,8 @@
    developers optimize the performance of HIP-capable GPU architectures.
   :keywords: AMD, ROCm, HIP, CUDA, performance, guidelines
 
+.. _how_to_performance_guidelines:
+
 *******************************************************************************
 Performance guidelines
 *******************************************************************************
@@ -32,16 +34,18 @@ reveal and efficiently provide as much parallelism as possible. The parallelism
 can be performed at the application level, device level, and multiprocessor
 level.
 
+.. _application_parallel_execution:
+
 Application level
 --------------------------------------------------------------------------------
 
 To enable parallel execution of the application across the host and devices, use
-asynchronous calls and streams. Assign workloads based on efficiency: serial to
-the host or parallel to the devices.
+:ref:`asynchronous calls and streams <asynchronous_how-to>`. Assign workloads
+based on efficiency: serial to the host or parallel to the devices.
 
 For parallel workloads, when threads belonging to the same block need to
 synchronize to share data, use :cpp:func:`__syncthreads()` (see:
-:ref:`synchronization functions`) within the same kernel invocation. For threads
+:ref:`synchronization_functions`) within the same kernel invocation. For threads
 belonging to different blocks, use global memory with two separate
 kernel invocations. It is recommended to avoid the latter approach as it adds
 overhead.
@@ -151,7 +155,7 @@ and is generally reduced when addresses are more scattered, especially in
 global memory.
 
 Device memory is accessed via 32-, 64-, or 128-byte transactions that must be
-naturally aligned. 
+naturally aligned.
 Maximizing memory throughput involves:
 
 - Coalescing memory accesses of threads within a warp into minimal transactions.
@@ -294,7 +298,7 @@ Applications frequently allocating and freeing memory might experience slower
 allocation calls over time as memory is released back to the operating system.
 To optimize performance in such scenarios, follow these guidelines:
 
-- Avoid allocating all available memory with :cpp:func:`hipMalloc` or 
+- Avoid allocating all available memory with :cpp:func:`hipMalloc` or
   :cpp:func:`hipHostMalloc`, as this immediately reserves memory and might
   prevent other applications from using it. This behavior could strain the
   operating system schedulers or prevent other applications from running on the
@@ -309,7 +313,7 @@ To optimize performance in such scenarios, follow these guidelines:
   performance, they allow the application to continue running.
 - For supported platforms, use :cpp:func:`hipMallocManaged`, as it allows
   oversubscription. With the right policies, :cpp:func:`hipMallocManaged` can
-  maintain most, if not all, :cpp:func:`hipMalloc` performance. 
+  maintain most, if not all, :cpp:func:`hipMalloc` performance.
   :cpp:func:`hipMallocManaged` doesn't require an allocation to be resident
   until it is needed or prefetched, which eases the load on the operating
   system's schedulers and facilitates multitenant scenarios.
